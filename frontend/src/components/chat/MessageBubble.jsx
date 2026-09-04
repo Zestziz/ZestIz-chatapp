@@ -128,6 +128,7 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
   const handleDelete = async () => {
     await deleteMessage(message.id);
     setIsDeleteConfirmOpen(false);
+    setIsMobileMenuOpen(false);
   };
 
   const pointerTimerRef = useRef(null);
@@ -206,6 +207,7 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
         transform: `translateX(${dragOffset}px)`,
         touchAction: 'pan-y',
         transition: isSwiping ? 'none' : 'transform 0.2s ease-out',
+        isolation: 'isolate',
       }}
     >
       <div className={`flex w-full ${isOwnMessage ? "justify-end" : "justify-start"}`}>
@@ -429,8 +431,12 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
       {isMobileMenuOpen && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setIsMobileMenuOpen(false);
+            if (e.target === e.currentTarget) {
+              setIsMobileMenuOpen(false);
+              setIsDeleteConfirmOpen(false);
+            }
           }}
         >
           <div
