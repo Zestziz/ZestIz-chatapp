@@ -189,7 +189,7 @@ export function ChatHeader() {
           <Button variant="ghost" size="sm" isIconOnly aria-label="More conversation settings" onPress={() => setIsUtilitiesOpen((open) => !open)}>
             <MoreHorizontalIcon className="size-5" aria-hidden />
           </Button>
-          {isUtilitiesOpen ? <div className="absolute right-0 top-11 z-50 flex w-64 flex-col gap-2 rounded-xl border border-border bg-background p-3 shadow-xl">
+          {isUtilitiesOpen ? <div className="fixed right-2 top-16 z-50 flex w-[calc(100vw-1rem)] max-w-sm flex-col gap-2 rounded-xl border border-border bg-background p-3 shadow-xl">
             <p className="px-1 text-xs font-semibold uppercase tracking-wider text-muted">Conversation settings</p>
             <Button className="w-full justify-start" size="sm" variant="flat" onPress={async () => { if (notificationSettings.enabled) setNotificationSettings({ ...notificationSettings, enabled: false }); else await enableNotifications(); }}><BellIcon className="size-4" /> {notificationSettings.enabled ? "Notifications on" : "Enable notifications"}</Button>
             <div className="flex items-center justify-between rounded-lg border border-border px-2 py-1.5 text-xs text-muted"><span>Appearance</span><ThemeToggle /></div>
