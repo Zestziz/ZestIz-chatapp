@@ -137,6 +137,8 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
   const composerText = useChatStore((state) => state.composerText);
 
   const handlePointerDown = (e) => {
+    // Don't start long-press if a mobile menu is already open
+    if (isMobileMenuOpen) return;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     isDraggingRef.current = true;
     setIsSwiping(true);
@@ -428,10 +430,12 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
           onClick={() => setIsMobileMenuOpen(false)}
+          onPointerDown={() => setIsMobileMenuOpen(false)}
         >
           <div
             className="w-full max-w-xs space-y-3 rounded-2xl border border-border bg-background p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
           >
             {/* Quick Emoji Reaction Bar */}
             {!isDeleted && (
