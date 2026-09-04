@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Avatar } from "@heroui/react";
 import { BarChart3Icon, CornerUpLeftIcon, PencilIcon, PinIcon, SmilePlusIcon, Trash2Icon, MoreHorizontalIcon, CopyIcon, AtSignIcon } from "lucide-react";
 import { withTransform } from "../../lib/imagekit";
@@ -85,16 +86,16 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
   const reactToMessage = useChatStore((state) => state.reactToMessage);
   const startEditingMessage = useChatStore((state) => state.startEditingMessage);
   const deleteMessage = useChatStore((state) => state.deleteMessage);
-    const votePoll = useChatStore((state) => state.votePoll);
-    const closePoll = useChatStore((state) => state.closePoll);
-    const pinMessage = useChatStore((state) => state.pinMessage);
-    const selectedGroup = useChatStore((state) => state.selectedGroup);
+  const votePoll = useChatStore((state) => state.votePoll);
+  const closePoll = useChatStore((state) => state.closePoll);
+  const pinMessage = useChatStore((state) => state.pinMessage);
+  const selectedGroup = useChatStore((state) => state.selectedGroup);
   const isOwnMessage = message.role === "me";
   const hasImage = Boolean(message.imageUrl);
   const hasVideo = Boolean(message.videoUrl);
   const hasAudio = Boolean(message.audio?.url);
-    const hasPoll = Boolean(message.poll?.question && message.poll.options?.length >= 2);
-    const canPin = !selectedGroup || selectedGroup.admins?.some((id) => String(id) === String(authUser?._id)) || String(selectedGroup.ownerId) === String(authUser?._id);
+  const hasPoll = Boolean(message.poll?.question && message.poll.options?.length >= 2);
+  const canPin = !selectedGroup || selectedGroup.admins?.some((id) => String(id) === String(authUser?._id)) || String(selectedGroup.ownerId) === String(authUser?._id);
   const isDeleted = Boolean(message.deletedAt);
   const reactions = message.reactions || [];
   const reactionGroups = reactions.reduce((groups, reaction) => {
@@ -137,7 +138,6 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
   const composerText = useChatStore((state) => state.composerText);
 
   const handlePointerDown = (e) => {
-    // Don't start long-press if a mobile menu is already open
     if (isMobileMenuOpen) return;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     isDraggingRef.current = true;
@@ -425,16 +425,16 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
       </div>
       </div>
 
-      {/* Mobile Context Menu Overlay */}
-      {isMobileMenuOpen && (
+      {/* Mobile Context Menu Overlay via React Portal */}
+      {isMobileMenuOpen && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsMobileMenuOpen(false);
           }}
         >
           <div
-            className="w-full max-w-xs space-y-3 rounded-2xl border border-border bg-background p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-xs space-y-3 rounded-2xl border border-border bg-background p-3 shadow-2xl animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
@@ -502,7 +502,8 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
