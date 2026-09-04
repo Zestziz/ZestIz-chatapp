@@ -494,7 +494,7 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
                     )}
                     {isOwnMessage && !isDeleted && (
                         <>
-                            {!message.poll && !message.imageUrl && !message.videoUrl && !message.audio && (
+                            {!message.poll && message.text && (
                                 <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { setIsMobileMenuOpen(false); startEditingMessage(message); }}>
                                     <PencilIcon className="size-4 text-muted" /> Edit Message
                                 </button>

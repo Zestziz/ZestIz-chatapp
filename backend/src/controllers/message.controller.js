@@ -195,8 +195,8 @@ export async function editMessage(req, res) {
     if (message.deletedAt) {
       return res.status(400).json({ message: "Deleted messages cannot be edited" });
     }
-    if (!message.text || message.image || message.video || message.audio) {
-      return res.status(400).json({ message: "Only text messages can be edited" });
+    if (!message.text) {
+      return res.status(400).json({ message: "Message has no text to edit" });
     }
 
     message.text = text;
