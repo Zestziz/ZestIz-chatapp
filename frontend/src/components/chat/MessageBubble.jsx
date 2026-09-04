@@ -429,65 +429,78 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
-          onClick={() => setIsMobileMenuOpen(false)}
-          onPointerDown={() => setIsMobileMenuOpen(false)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsMobileMenuOpen(false);
+          }}
         >
           <div
             className="w-full max-w-xs space-y-3 rounded-2xl border border-border bg-background p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            {/* Quick Emoji Reaction Bar */}
-            {!isDeleted && (
-              <div className="flex justify-between rounded-xl bg-surface p-1.5 shadow-inner">
-                {REACTION_OPTIONS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    className="flex size-9 items-center justify-center rounded-lg text-xl transition-transform active:scale-125 hover:bg-accent-soft"
-                    onClick={() => {
-                        handleReaction(emoji);
-                        setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    {emoji}
-                  </button>
-                ))}
+            {isDeleteConfirmOpen ? (
+              <div className="space-y-3 p-2">
+                <p className="text-center font-medium">Delete for everyone?</p>
+                <div className="flex gap-2">
+                  <button type="button" className="flex-1 rounded-lg bg-surface py-2 hover:bg-surface/80" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</button>
+                  <button type="button" className="flex-1 rounded-lg bg-danger py-2 text-white hover:bg-danger/90" onClick={handleDelete}>Delete</button>
+                </div>
               </div>
-            )}
-            {/* Action Menu */}
-            <div className="flex flex-col divide-y divide-border/50 rounded-xl bg-surface text-sm">
-                <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { setIsMobileMenuOpen(false); onReply?.(); }}>
-                    <CornerUpLeftIcon className="size-4 text-accent" /> Reply
-                </button>
-                {message.text && (
-                    <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={handleCopyText}>
-                        <CopyIcon className="size-4 text-muted" /> Copy Text
-                    </button>
+            ) : (
+              <>
+                {/* Quick Emoji Reaction Bar */}
+                {!isDeleted && (
+                  <div className="flex justify-between rounded-xl bg-surface p-1.5 shadow-inner">
+                    {REACTION_OPTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="flex size-9 items-center justify-center rounded-lg text-xl transition-transform active:scale-125 hover:bg-accent-soft"
+                        onClick={() => {
+                            handleReaction(emoji);
+                            setIsMobileMenuOpen(false);
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {selectedGroup && !isOwnMessage && (
-                    <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={handleMentionSender}>
-                        <AtSignIcon className="size-4 text-accent" /> Mention User
+                {/* Action Menu */}
+                <div className="flex flex-col divide-y divide-border/50 rounded-xl bg-surface text-sm">
+                    <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { setIsMobileMenuOpen(false); onReply?.(); }}>
+                        <CornerUpLeftIcon className="size-4 text-accent" /> Reply
                     </button>
-                )}
-                {canPin && !isDeleted && (
-                    <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { pinMessage(message.id, !message.isPinned); setIsMobileMenuOpen(false); }}>
-                        <PinIcon className="size-4 text-accent" /> {message.isPinned ? "Unpin Message" : "Pin Message"}
-                    </button>
-                )}
-                {isOwnMessage && !isDeleted && (
-                    <>
-                        {!message.poll && !message.imageUrl && !message.videoUrl && !message.audio && (
-                            <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { setIsMobileMenuOpen(false); startEditingMessage(message); }}>
-                                <PencilIcon className="size-4 text-muted" /> Edit Message
-                            </button>
-                        )}
-                        <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-danger hover:bg-danger/10" onClick={() => { setIsMobileMenuOpen(false); setIsDeleteConfirmOpen(true); }}>
-                            <Trash2Icon className="size-4" /> Delete Message
+                    {message.text && (
+                        <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={handleCopyText}>
+                            <CopyIcon className="size-4 text-muted" /> Copy Text
                         </button>
-                    </>
-                )}
-            </div>
+                    )}
+                    {selectedGroup && !isOwnMessage && (
+                        <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={handleMentionSender}>
+                            <AtSignIcon className="size-4 text-accent" /> Mention User
+                        </button>
+                    )}
+                    {canPin && !isDeleted && (
+                        <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { pinMessage(message.id, !message.isPinned); setIsMobileMenuOpen(false); }}>
+                            <PinIcon className="size-4 text-accent" /> {message.isPinned ? "Unpin Message" : "Pin Message"}
+                        </button>
+                    )}
+                    {isOwnMessage && !isDeleted && (
+                        <>
+                            {!message.poll && !message.imageUrl && !message.videoUrl && !message.audio && (
+                                <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { setIsMobileMenuOpen(false); startEditingMessage(message); }}>
+                                    <PencilIcon className="size-4 text-muted" /> Edit Message
+                                </button>
+                            )}
+                            <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-danger hover:bg-danger/10" onClick={() => { setIsDeleteConfirmOpen(true); }}>
+                                <Trash2Icon className="size-4" /> Delete Message
+                            </button>
+                        </>
+                    )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
