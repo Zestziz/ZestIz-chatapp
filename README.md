@@ -4,9 +4,15 @@
 
 🌐 **Live Demo:** [https://zestiz-chatapp.onrender.com/](https://zestiz-chatapp.onrender.com/)
 
-## 🚀 Latest Features (Updated September 2026)
+## 🚀 Latest Features & Updates (September 2026)
 
-- **Message Editing & Deletion:** Edit sent messages or delete them with proper audit trails
+### Recent Improvements
+- **Enhanced Message Editing:** Now supports editing messages with media attachments (text portion remains editable)
+- **Fixed Mobile UI Stacking:** Resolved z-index issues where chat elements overlapped context menus and action overlays
+- **Improved Touch Interactions:** Better long-press gesture handling with proper event isolation using React 19 portals
+
+### Core Features
+- **Message Editing & Deletion:** Edit sent messages (including those with attachments) or delete them with proper audit trails
 - **Emoji Reactions:** Add reactions to any message for quick feedback
 - **Voice Message Support:** Send and receive high-quality voice messages with waveform playback
 - **User Mentions:** Tag users with @mentions for targeted notifications
