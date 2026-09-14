@@ -34,12 +34,15 @@ export default function BlockedUsersPanel() {
               className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/50 hover:border-border transition-colors"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <Avatar
-                  src={user.profilePic}
-                  name={getInitials(user.fullName)}
-                  size="sm"
-                  className="size-8"
-                />
+                <Avatar className="size-8 shrink-0">
+                  <Avatar.Image
+                    src={user.profilePic || user.avatar || user.imageUrl || user.avatarUrl}
+                    alt={user.fullName}
+                  />
+                  <Avatar.Fallback className="text-xs font-medium">
+                    {getInitials(user.fullName)}
+                  </Avatar.Fallback>
+                </Avatar>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold truncate leading-tight">
                     {user.fullName}

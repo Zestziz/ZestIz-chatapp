@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useFriendStore } from "../../store/useFriendStore";
 import { Avatar, Button } from "@heroui/react";
 import { Check, X } from "lucide-react";
+import { getInitials } from "../../hooks/useSelectedConversation";
 
 export default function PendingRequestsPanel() {
   const incomingRequests = useFriendStore((state) => state.incomingRequests);
@@ -28,7 +29,15 @@ export default function PendingRequestsPanel() {
             {incomingRequests.map((req) => (
               <li key={req._id} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Avatar src={req.sender.profilePic} name={req.sender.fullName} size="sm" />
+                  <Avatar className="size-8 shrink-0">
+                    <Avatar.Image
+                      src={req.sender.profilePic || req.sender.avatar || req.sender.imageUrl || req.sender.avatarUrl}
+                      alt={req.sender.fullName}
+                    />
+                    <Avatar.Fallback className="text-xs font-medium">
+                      {getInitials(req.sender.fullName)}
+                    </Avatar.Fallback>
+                  </Avatar>
                   <span className="text-sm font-medium truncate max-w-[100px]">{req.sender.fullName}</span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -52,7 +61,15 @@ export default function PendingRequestsPanel() {
             {outgoingRequests.map((req) => (
               <li key={req._id} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Avatar src={req.receiver.profilePic} name={req.receiver.fullName} size="sm" />
+                  <Avatar className="size-8 shrink-0">
+                    <Avatar.Image
+                      src={req.receiver.profilePic || req.receiver.avatar || req.receiver.imageUrl || req.receiver.avatarUrl}
+                      alt={req.receiver.fullName}
+                    />
+                    <Avatar.Fallback className="text-xs font-medium">
+                      {getInitials(req.receiver.fullName)}
+                    </Avatar.Fallback>
+                  </Avatar>
                   <span className="text-sm font-medium truncate max-w-[100px]">{req.receiver.fullName}</span>
                 </div>
                 <Button size="sm" color="danger" variant="light" onPress={() => cancelRequest(req.receiver._id)}>

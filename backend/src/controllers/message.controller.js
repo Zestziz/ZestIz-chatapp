@@ -39,10 +39,11 @@ export async function getConversationsForSidebar(req, res) {
     ];
 
     const conversations = await Message.aggregate([
-      // 1. Keep only the messages I sent or received.
+      // 1. Keep only the messages I sent or received and haven't deleted for myself.
       {
         $match: {
           groupId: null,
+          deletedFor: { $ne: loggedInUserId },
           $or: [{ senderId: loggedInUserId }, { receiverId: loggedInUserId }],
           senderId: { $nin: excludeIds },
           receiverId: { $nin: excludeIds },
@@ -104,6 +105,8 @@ export async function getMessages(req, res) {
     const myId = req.user._id;
 
     const messages = await Message.find({
+      groupId: null,
+      deletedFor: { $ne: myId },
       $or: [
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
@@ -150,6 +153,8 @@ export async function searchMessages(req, res) {
 
     const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const messages = await Message.find({
+      groupId: null,
+      deletedFor: { $ne: req.user._id },
       $or: [
         { senderId: req.user._id, receiverId: userId },
         { senderId: userId, receiverId: req.user._id },
@@ -273,6 +278,54 @@ export async function deleteMessage(req, res) {
     return res.status(200).json(message);
   } catch (error) {
     console.error("Error in deleteMessage:", error.message);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function deleteConversation(req, res) {
+  try {
+    const { targetUserId } = req.params;
+    const currentUserId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    if (String(targetUserId) === String(currentUserId)) {
+      return res.status(400).json({ message: "Cannot delete conversation with yourself" });
+    }
+
+    // 1. Add current user to deletedFor list on all messages between the two users
+    await Message.updateMany(
+      {
+        groupId: null,
+        $or: [
+          { senderId: currentUserId, receiverId: targetUserId },
+          { senderId: targetUserId, receiverId: currentUserId },
+        ],
+      },
+      {
+        $addToSet: { deletedFor: currentUserId },
+      }
+    );
+
+    // 2. Optional clean-up: Hard delete messages if both participants have marked it as deletedFor
+    await Message.deleteMany({
+      groupId: null,
+      $or: [
+        { senderId: currentUserId, receiverId: targetUserId },
+        { senderId: targetUserId, receiverId: currentUserId },
+      ],
+      // Since it's a 1-on-1 chat, if deletedFor has 2 elements, both have deleted it
+      $expr: { $gte: [{ $size: { $ifNull: ["$deletedFor", []] } }, 2] }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error in deleteConversation:", error.message);
     return res.status(500).json({ message: "Internal server error" });
   }
 }

@@ -43,6 +43,12 @@ select {
   }
 }
 
+.zestiz-conversation-list {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 60px;
+  overscroll-behavior-y: contain;
+}
+
 .zestiz-message-scroll {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--accent, currentColor) 25%, transparent) transparent;

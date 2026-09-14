@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "@heroui/react";
 import { CornerUpLeftIcon, PencilIcon, PinIcon, SmilePlusIcon, Trash2Icon, CopyIcon, AtSignIcon, ClockIcon, AlertCircleIcon } from "lucide-react";
-import { withTransform } from "../../lib/imagekit";
+import { getOptimizedMediaUrl } from "../../lib/imagekit";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
 import { MessageVideo } from "./MessageVideo";
@@ -12,8 +12,6 @@ import { ImageViewerModal } from "./ImageViewerModal";
 import { getInitials } from "../../hooks/useSelectedConversation";
 import toast from "react-hot-toast";
 
-// Compress + size images for the bubble (q-auto works for images; f-auto picks WebP/AVIF).
-const IMAGE_TRANSFORM = "q-auto,w-640,f-auto";
 const REACTION_OPTIONS = ["❤️", "😂", "👍", "😮", "😢", "🔥", "😡"];
 
 function renderFormattedMessage(text, isOwnMessage) {
@@ -74,7 +72,7 @@ function renderFormattedMessage(text, isOwnMessage) {
   return elements;
 }
 
-export function MessageBubble({ message, onReply, onNavigateToReply }) {
+export const MessageBubble = memo(function MessageBubble({ message, onReply, onNavigateToReply }) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -195,7 +193,7 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
 
   return (
     <div
-      className={`group relative flex w-full flex-col ${isOwnMessage ? "items-end" : "items-start"} ${!message.deletedAt && message.reactions?.length ? "mb-5" : ""}`}
+      className={`group relative flex w-full flex-col ${isOwnMessage ? "items-end" : "items-start"} ${!isDeleted && reactionGroups.length > 0 ? "mb-3.5 sm:mb-4" : "mb-0.5"}`}
       data-message-id={message.id}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -212,7 +210,7 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
       <div className={`flex w-full ${isOwnMessage ? "justify-end" : "justify-start"}`}>
         {!isOwnMessage && (
             <Avatar className="size-8 shrink-0 self-end mr-2">
-                <Avatar.Image alt={message.senderName} src={message.senderPic} />
+                <Avatar.Image alt={message.senderName} src={getOptimizedMediaUrl(message.senderPic, "avatar")} />
                 <Avatar.Fallback className="text-xs">{getInitials(message.senderName || "User")}</Avatar.Fallback>
             </Avatar>
         )}
@@ -369,12 +367,14 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
           <>
             {message.isPinned ? <p className="mb-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide opacity-75"><PinIcon className="size-3" /> Pinned</p> : null}
             {hasImage ? (
-              <img
-                src={withTransform(message.imageUrl, IMAGE_TRANSFORM)}
-                alt=""
-                className="mb-1.5 max-h-40 max-w-full rounded-lg object-cover sm:max-h-52 sm:rounded-xl cursor-pointer hover:opacity-90 transition-opacity active:scale-[0.99]"
-                onClick={(e) => { e.stopPropagation(); setIsImageViewerOpen(true); }}
-              />
+              <div className="mb-1.5 overflow-hidden rounded-xl">
+                <img
+                  src={getOptimizedMediaUrl(message.imageUrl, "thumbnail")}
+                  alt=""
+                  className="max-h-40 max-w-full object-cover sm:max-h-52 cursor-pointer hover:opacity-90 transition-opacity active:scale-[0.99]"
+                  onClick={(e) => { e.stopPropagation(); setIsImageViewerOpen(true); }}
+                />
+              </div>
             ) : null}
             {isImageViewerOpen ? (
               <ImageViewerModal
@@ -392,7 +392,12 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
           </>
         )}
         {!isDeleted && reactionGroups.length > 0 ? (
-          <div className={`absolute -bottom-4 z-10 flex max-w-[92%] flex-wrap gap-1 ${isOwnMessage ? "right-2 justify-end" : "left-2 justify-start"}`} onClick={(event) => event.stopPropagation()}>
+          <div
+            className={`absolute -bottom-3 z-10 flex max-w-[92%] flex-wrap gap-1 ${
+              isOwnMessage ? "right-2 justify-end" : "left-2 justify-start"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+          >
             {reactionGroups.map(({ emoji, count }) => {
               const isCurrentUserReaction = reactions.some(
                 (reaction) =>
@@ -403,15 +408,16 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
                 <button
                   key={emoji}
                   type="button"
-                  className={`rounded-full border px-1.5 py-0.5 text-xs leading-none ${
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs leading-none shadow-md backdrop-blur-xs transition-transform hover:scale-105 ${
                     isCurrentUserReaction
-                      ? "border-accent/60 bg-accent-soft shadow-sm"
-                      : "border-border bg-background/95 shadow-sm"
+                      ? "border-accent/60 bg-accent-soft text-foreground"
+                      : "border-border bg-surface text-foreground"
                   }`}
                   aria-label={`${emoji} reaction, ${count}`}
                   onClick={() => handleReaction(emoji)}
                 >
-                  {emoji} {count}
+                  <span>{emoji}</span>
+                  <span className="text-[11px] font-medium">{count}</span>
                 </button>
               );
             })}
@@ -528,4 +534,4 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
       )}
     </div>
   );
-}
+});

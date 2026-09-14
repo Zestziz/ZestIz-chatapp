@@ -1,12 +1,18 @@
 import { useWallpaper } from "../context/wallpaper";
 import { useChatStore } from "../store/useChatStore";
+import { useFriendStore } from "../store/useFriendStore";
 import { useSelectedConversation } from "../hooks/useSelectedConversation";
-import { useEffect } from "react";
-import ChatSidebar from "../components/chat/ChatSidebar"
+import { useEffect, lazy, Suspense } from "react";
+import ChatSidebar from "../components/chat/ChatSidebar";
 import { ChatHeader } from "../components/chat/ChatHeader";
 import { MessageList } from "../components/chat/MessageList";
 import { ChatComposer } from "../components/chat/ChatComposer";
-import { ProfileModal } from "../components/profile/ProfileModal";
+
+const ProfileModal = lazy(() =>
+  import("../components/profile/ProfileModal").then((module) => ({
+    default: module.ProfileModal,
+  }))
+);
 
 function ChatPage() {
   const { frameStyle } = useWallpaper();
@@ -18,14 +24,16 @@ function ChatPage() {
   const getGroupMessages = useChatStore((state) => state.getGroupMessages);
   const getGroups = useChatStore((state) => state.getGroups);
   const getUsers = useChatStore((state) => state.getUsers);
+  const getFriends = useFriendStore((state) => state.getFriends);
+  const getPendingRequests = useFriendStore((state) => state.getPendingRequests);
   const subscribeToMessages = useChatStore((state) => state.subscribeToMessages);
   const unsubscribeFromMessages = useChatStore((state) => state.unsubscribeFromMessages);
 
   const { activeConversation, activeConversationId, isLargeScreen } = useSelectedConversation();
 
   useEffect(() => {
-    Promise.allSettled([getUsers(), getConversations(), getGroups()]);
-  }, [getConversations, getGroups, getUsers]);
+    Promise.allSettled([getUsers(), getConversations(), getGroups(), getFriends(), getPendingRequests()]);
+  }, [getConversations, getGroups, getUsers, getFriends, getPendingRequests]);
 
   useEffect(() => {
     subscribeToMessages();
@@ -52,12 +60,14 @@ function ChatPage() {
           <ChatHeader />
           <MessageList />
 
-          {activeConversation ? <ChatComposer/> : null}
+          {activeConversation ? <ChatComposer /> : null}
         </div>
       </div>
-      <ProfileModal key={profileUser?._id || "closed"} />
+      <Suspense fallback={null}>
+        <ProfileModal key={profileUser?._id || "closed"} />
+      </Suspense>
     </div>
-  )
+  );
 }
 
-export default ChatPage
+export default ChatPage;

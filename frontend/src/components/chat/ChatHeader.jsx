@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Avatar, Button } from "@heroui/react";
-import { BellIcon, BellOffIcon, ChevronLeftIcon, MoreHorizontalIcon, PinIcon, SearchIcon, Volume2Icon, VolumeXIcon, XIcon, MoreVertical, UserMinus, Ban } from "lucide-react";
+import { BellIcon, BellOffIcon, ChevronLeftIcon, MoreHorizontalIcon, PinIcon, SearchIcon, Volume2Icon, VolumeXIcon, XIcon, MoreVertical, UserMinus, Ban, Trash2 } from "lucide-react";
 import { AppLogo } from "../AppLogo";
 import { AvatarWithOnlineIndicator } from "./AvatarWithOnlineIndicator";
+import { DeleteConversationModal } from "./DeleteConversationModal";
 
 import { ThemePresetPicker } from "../ThemePresetPicker";
 import { ThemeToggle } from "../ThemeToggle";
@@ -34,6 +35,9 @@ export function ChatHeader() {
   const [isGroupDetailsOpen, setIsGroupDetailsOpen] = useState(false);
   const [isPinnedOpen, setIsPinnedOpen] = useState(false);
   const [isUtilitiesOpen, setIsUtilitiesOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const deleteConversation = useChatStore((state) => state.deleteConversation);
   const searchMessages = useChatStore((state) => state.searchMessages);
   const searchResults = useChatStore((state) => state.searchResults);
   const isSearchingMessages = useChatStore((state) => state.isSearchingMessages);
@@ -116,6 +120,20 @@ export function ChatHeader() {
     if (!userId) return;
     setIsMenuOpen(false);
     await removeFriend(userId);
+  };
+
+  const handleDeleteConversation = async () => {
+    const targetId = activeConversation?.id || selectedUser?._id || selectedUser?.id;
+    if (!targetId) return;
+    setIsDeleting(true);
+    try {
+      const success = await deleteConversation(targetId);
+      if (success) {
+        setIsDeleteModalOpen(false);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -231,6 +249,18 @@ export function ChatHeader() {
                 >
                   <Ban className="size-4" />
                   <span>Block User</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer transition-colors"
+                >
+                  <Trash2 className="size-4" />
+                  <span>Delete Conversation</span>
                 </button>
               </div>
             )}
@@ -358,6 +388,13 @@ export function ChatHeader() {
         </div>
       ) : null}
       {isGroupDetailsOpen && selectedGroup ? <GroupDetailsModal group={selectedGroup} onClose={() => setIsGroupDetailsOpen(false)} /> : null}
+      <DeleteConversationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteConversation}
+        userName={activeConversation?.peer?.name || selectedUser?.name || "this user"}
+        isLoading={isDeleting}
+      />
     </header>
   );
 }

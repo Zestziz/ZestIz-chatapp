@@ -6,6 +6,7 @@ import {
   getUsersForSidebar,
   editMessage,
   deleteMessage,
+  deleteConversation,
   markMessagesRead,
   reactToMessage,
   sendMessage,
@@ -28,6 +29,7 @@ router.post("/:messageId/poll/vote", votePoll);
 router.patch("/:messageId/poll/close", closePoll);
 router.patch("/:messageId/pin", updatePin);
 router.patch("/:messageId", editMessage);
+router.delete("/conversations/:targetUserId", deleteConversation);
 router.delete("/:messageId", deleteMessage);
 router.get("/:id", getMessages);
 router.get("/pinned/:userId", getPinnedMessages);

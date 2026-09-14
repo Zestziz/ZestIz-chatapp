@@ -1,9 +1,11 @@
+import { memo } from "react";
 import { Avatar, Button } from "@heroui/react";
 import { UserPlus, Clock, Check, X, UserMinus } from "lucide-react";
 import { AvatarWithOnlineIndicator } from "./AvatarWithOnlineIndicator";
 import { useFriendStore } from "../../store/useFriendStore";
+import { getOptimizedMediaUrl } from "../../lib/imagekit";
 
-export function UserRow({ user, selected, onSelect, onProfile }) {
+export const UserRow = memo(function UserRow({ user, selected, onSelect, onProfile }) {
   const friends = useFriendStore((state) => state.friends);
   const incomingRequests = useFriendStore((state) => state.incomingRequests);
   const outgoingRequests = useFriendStore((state) => state.outgoingRequests);
@@ -14,25 +16,30 @@ export function UserRow({ user, selected, onSelect, onProfile }) {
   const cancelRequest = useFriendStore((state) => state.cancelRequest);
   const removeFriend = useFriendStore((state) => state.removeFriend);
 
-  const isFriend = friends.some((f) => f._id === user.id);
-  const isPendingOutgoing = outgoingRequests.some((r) => r.receiver._id === user.id);
-  const incomingRequest = incomingRequests.find((r) => r.sender._id === user.id);
+  const isFriend = friends.some((f) => (f._id || f.id) === (user.id || user._id));
+  const isPendingOutgoing = outgoingRequests.some((r) => (r.receiver._id || r.receiver.id) === (user.id || user._id));
+  const incomingRequest = incomingRequests.find((r) => (r.sender._id || r.sender.id) === (user.id || user._id));
 
   const handleAction = (e) => {
     e.stopPropagation();
   };
 
+  const avatarSrc = getOptimizedMediaUrl(
+    user.profilePic || user.avatar || user.avatarUrl || user.imageUrl,
+    "avatar"
+  );
+
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-full items-center gap-3 border-b border-border/50 px-3 py-3 text-left transition-colors sm:px-4 ${
+      className={`flex w-full items-center gap-3 border-b border-border/50 px-3 py-3 text-left transition-colors sm:px-4 zestiz-conversation-list ${
         selected ? "bg-accent-soft/75" : "hover:bg-surface/70"
       }`}
     >
       <AvatarWithOnlineIndicator isOnline={user.isOnline ?? false} onClick={(event) => { event.stopPropagation(); onProfile?.(); }}>
         <Avatar className="size-11 shrink-0">
-          <Avatar.Image alt={user.name} src={user.avatarUrl} />
+          <Avatar.Image alt={user.name} src={avatarSrc} />
           <Avatar.Fallback className="text-sm font-medium">{user.initials}</Avatar.Fallback>
         </Avatar>
       </AvatarWithOnlineIndicator>
@@ -73,4 +80,4 @@ export function UserRow({ user, selected, onSelect, onProfile }) {
       </div>
     </button>
   );
-}
+});

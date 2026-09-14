@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
+import { useFriendStore } from "./useFriendStore";
 import toast from "react-hot-toast";
 
 function updateMessageReceipts(messages, messageIds, receipt) {
@@ -26,14 +27,6 @@ function updateMessagePoll(messages, messageId, poll) {
 
 function updateMessagePin(messages, messageId, pin) {
   return messages.map((message) => String(message._id) === String(messageId) ? { ...message, ...pin } : message);
-}
-
-function incrementConversationUnread(conversations, userId) {
-  return conversations.map((conversation) =>
-    String(conversation._id) === String(userId)
-      ? { ...conversation, unreadCount: (conversation.unreadCount || 0) + 1 }
-      : conversation,
-  );
 }
 
 function updateMessageFromServer(messages, updatedMessage) {
@@ -72,6 +65,8 @@ function markMessageDeleted(messages, messageId, deletedAt, deletedBy) {
     return message;
   });
 }
+
+let globalTypingTimeout = null;
 
 export const useChatStore = create(
   persist(
@@ -507,6 +502,73 @@ export const useChatStore = create(
         }
       },
 
+      deleteConversation: async (targetUserId) => {
+        if (!targetUserId) return false;
+        const targetId = String(targetUserId);
+        const {
+          conversations,
+          messages,
+          selectedUser,
+          activeConversationId,
+          messagesByChatId,
+          lastFetchedChats,
+        } = get();
+
+        // 1. Optimistic updates
+        const nextConversations = conversations.filter(
+          (c) => String(c._id) !== targetId && String(c.id) !== targetId
+        );
+
+        const isCurrentChatActive =
+          String(selectedUser?._id) === targetId ||
+          String(selectedUser?.id) === targetId ||
+          String(activeConversationId) === targetId;
+
+        const updatedMessagesByChatId = { ...messagesByChatId };
+        delete updatedMessagesByChatId[targetId];
+
+        const updatedLastFetchedChats = { ...lastFetchedChats };
+        delete updatedLastFetchedChats[targetId];
+
+        set({
+          conversations: nextConversations,
+          messagesByChatId: updatedMessagesByChatId,
+          lastFetchedChats: updatedLastFetchedChats,
+          ...(isCurrentChatActive
+            ? {
+                selectedUser: null,
+                activeConversationId: null,
+                messages: [],
+                pinnedMessages: [],
+                replyingTo: null,
+                editingMessage: null,
+              }
+            : {}),
+        });
+
+        try {
+          await axiosInstance.delete(`/messages/conversations/${targetUserId}`);
+          toast.success("Conversation deleted successfully");
+          return true;
+        } catch (error) {
+          // Rollback on error
+          set({
+            conversations,
+            messagesByChatId,
+            lastFetchedChats,
+            ...(isCurrentChatActive
+              ? {
+                  selectedUser,
+                  activeConversationId,
+                  messages,
+                }
+              : {}),
+          });
+          toast.error(error.response?.data?.message || "Failed to delete conversation");
+          return false;
+        }
+      },
+
       sendMessage: async (messageData) => {
         const { selectedUser, selectedGroup, messages, replyingTo } = get();
         if (!selectedUser && !selectedGroup) return false;
@@ -546,8 +608,49 @@ export const useChatStore = create(
         };
 
         // Apply optimistic update
+        let nextConversations = get().conversations;
+
+        if (selectedUser) {
+          const targetUserId = selectedUser._id || selectedUser.id;
+          const conversationIndex = nextConversations.findIndex(
+            (c) => String(c._id) === String(targetUserId)
+          );
+
+          if (conversationIndex === -1) {
+            // Missing conversation: Add it dynamically instantly
+            const newConversation = {
+              _id: targetUserId,
+              id: targetUserId,
+              fullName: selectedUser.fullName || selectedUser.name || "User",
+              username: selectedUser.username,
+              profilePic: selectedUser.profilePic || selectedUser.avatarUrl || selectedUser.avatar || "",
+              email: selectedUser.email,
+              lastSeen: selectedUser.lastSeen,
+              unreadCount: 0,
+              lastMessage: optimisticMessage,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            nextConversations = [newConversation, ...nextConversations];
+          } else {
+            // Already present: Update its lastMessage and bump it to top
+            const existingConv = nextConversations[conversationIndex];
+            const updatedConv = {
+              ...existingConv,
+              lastMessage: optimisticMessage,
+              updatedAt: new Date().toISOString(),
+            };
+            nextConversations = [
+              updatedConv,
+              ...nextConversations.slice(0, conversationIndex),
+              ...nextConversations.slice(conversationIndex + 1),
+            ];
+          }
+        }
+
         set({
           messages: [...messages, optimisticMessage],
+          conversations: nextConversations,
           composerText: "",
           replyingTo: null
         });
@@ -622,18 +725,66 @@ export const useChatStore = create(
 
         socket.on("newMessage", (newMessage) => {
           const activeConversationId = get().activeConversationId;
-          if (String(newMessage.senderId) === String(activeConversationId)) {
-            set({ messages: [...get().messages, newMessage] });
+          const isCurrentActive = String(newMessage.senderId) === String(activeConversationId);
+          const currentConversations = get().conversations;
+          const senderIdStr = String(newMessage.senderId);
+
+          const conversationIndex = currentConversations.findIndex(
+            (c) => String(c._id || c.id || c.userId || c.user?._id) === senderIdStr
+          );
+
+          let nextConversations = [...currentConversations];
+
+          if (conversationIndex === -1) {
+            // Find sender in users or friends
+            const knownUser =
+              get().users.find((u) => String(u._id || u.id) === senderIdStr) ||
+              useFriendStore.getState().friends.find((f) => String(f._id || f.id) === senderIdStr);
+
+            const newConversation = {
+              _id: newMessage.senderId,
+              id: newMessage.senderId,
+              fullName: knownUser?.fullName || knownUser?.name || newMessage.senderName || "User",
+              username: knownUser?.username || newMessage.senderUsername || "",
+              profilePic: knownUser?.profilePic || knownUser?.avatarUrl || knownUser?.avatar || newMessage.senderPic || "",
+              email: knownUser?.email || "",
+              lastSeen: knownUser?.lastSeen || new Date().toISOString(),
+              unreadCount: isCurrentActive ? 0 : 1,
+              lastMessage: newMessage,
+              createdAt: newMessage.createdAt || new Date().toISOString(),
+              updatedAt: newMessage.createdAt || new Date().toISOString(),
+            };
+
+            nextConversations = [newConversation, ...nextConversations];
           } else {
-            set((state) => ({
-              conversations: incrementConversationUnread(
-                state.conversations,
-                newMessage.senderId,
-              ),
-            }));
+            const existingConv = currentConversations[conversationIndex];
+            const updatedConv = {
+              ...existingConv,
+              unreadCount: isCurrentActive ? 0 : (existingConv.unreadCount || 0) + 1,
+              lastMessage: newMessage,
+              updatedAt: newMessage.createdAt || new Date().toISOString(),
+            };
+
+            nextConversations = [
+              updatedConv,
+              ...currentConversations.slice(0, conversationIndex),
+              ...currentConversations.slice(conversationIndex + 1),
+            ];
+          }
+
+          if (isCurrentActive) {
+            set({
+              messages: [...get().messages, newMessage],
+              conversations: nextConversations,
+            });
+          } else {
+            set({
+              conversations: nextConversations,
+            });
+
             if (document.hidden && useAuthStore.getState().notificationSettings.messages) {
-              const sender = [...get().users, ...get().conversations].find(
-                (user) => String(user._id) === String(newMessage.senderId),
+              const sender = [...get().users, ...nextConversations].find(
+                (user) => String(user._id) === senderIdStr,
               );
               const messageType = newMessage.audio
                 ? "a voice message"
@@ -652,7 +803,8 @@ export const useChatStore = create(
             }
           }
 
-          get().getConversations();
+          // Trigger a silent background fetch to ensure everything is perfectly in sync
+          get().getConversations(true);
         });
 
         socket.on("newGroupMessage", (newMessage) => {
@@ -838,6 +990,35 @@ export const useChatStore = create(
       setSidebarTab: (sidebarTab) => set({ sidebarTab }),
       setComposerText: (composerText) => set({ composerText }),
       setSoundEnabled: (isSoundEnabled) => set({ isSoundEnabled }),
+
+      dispatchTyping: (conversationId, isGroup) => {
+        const { socket } = useAuthStore.getState();
+        if (!socket || !conversationId) return;
+
+        const payload = isGroup ? { groupId: conversationId } : { receiverId: conversationId };
+
+        if (!globalTypingTimeout) {
+          socket.emit("typing", payload);
+        } else {
+          clearTimeout(globalTypingTimeout);
+        }
+
+        globalTypingTimeout = setTimeout(() => {
+          socket.emit("stopTyping", payload);
+          globalTypingTimeout = null;
+        }, 2500);
+      },
+
+      stopTyping: (conversationId, isGroup) => {
+        if (!globalTypingTimeout) return;
+        const { socket } = useAuthStore.getState();
+        if (!socket || !conversationId) return;
+
+        clearTimeout(globalTypingTimeout);
+        globalTypingTimeout = null;
+        const payload = isGroup ? { groupId: conversationId } : { receiverId: conversationId };
+        socket.emit("stopTyping", payload);
+      },
 
       sendTextMessage: async (conversationId) => {
         const messageText = get().composerText.trim();

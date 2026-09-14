@@ -38,7 +38,15 @@ export default function FriendsSidebar() {
           <li key={f._id} className="flex items-center justify-between group">
             <div className="flex items-center gap-3">
               <AvatarWithOnlineIndicator isOnline={onlineUsers.includes(f._id)}>
-                <Avatar src={f.profilePic} name={getInitials(f.fullName)} size="md" />
+                <Avatar className="size-10 shrink-0">
+                  <Avatar.Image
+                    src={f.profilePic || f.avatar || f.imageUrl || f.avatarUrl}
+                    alt={f.fullName}
+                  />
+                  <Avatar.Fallback className="text-sm font-medium">
+                    {getInitials(f.fullName)}
+                  </Avatar.Fallback>
+                </Avatar>
               </AvatarWithOnlineIndicator>
               <div>
                 <p className="text-sm font-semibold">{f.fullName}</p>

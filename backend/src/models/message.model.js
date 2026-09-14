@@ -100,6 +100,12 @@ const messageSchema = new mongoose.Schema(
         ref: "User",
         default: null,
       },
+      deletedFor: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
   },
   { timestamps: true },
 );

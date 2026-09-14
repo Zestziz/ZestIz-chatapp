@@ -39,6 +39,8 @@ export function ChatComposer() {
   const cancelEditing = useChatStore((state) => state.cancelEditing);
   const { activeConversationId } = useSelectedConversation();
   const { playRandomKeyStrokeSound } = useKeyboardSound();
+  const dispatchTyping = useChatStore((state) => state.dispatchTyping);
+  const storeStopTyping = useChatStore((state) => state.stopTyping);
   const mediaInputRef = useRef(null);
   const textAreaRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -56,9 +58,6 @@ export function ChatComposer() {
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionIndex, setMentionIndex] = useState(null);
-
-  const isTypingRef = useRef(false);
-  const typingTimeoutRef = useRef(null);
 
   const authUser = useAuthStore((state) => state.authUser);
 
@@ -94,17 +93,11 @@ export function ChatComposer() {
   useEffect(() => {
     // When activeConversationId changes, or on unmount, make sure we clean up previous typing state
     return () => {
-      if (isTypingRef.current && activeConversationId) {
-        const socket = useAuthStore.getState().socket;
-        socket?.emit("stopTyping", selectedGroup ? { groupId: selectedGroup._id } : { receiverId: activeConversationId });
+      if (activeConversationId) {
+        storeStopTyping(activeConversationId, !!selectedGroup);
       }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = null;
-      }
-      isTypingRef.current = false;
     };
-  }, [activeConversationId, selectedGroup]);
+  }, [activeConversationId, selectedGroup, storeStopTyping]);
 
   const playSoundIfEnabled = () => {
     if (isSoundEnabled) playRandomKeyStrokeSound();
@@ -122,13 +115,8 @@ export function ChatComposer() {
   };
 
   const stopTyping = () => {
-    if (isTypingRef.current && activeConversationId) {
-      useAuthStore.getState().socket?.emit("stopTyping", selectedGroup ? { groupId: selectedGroup._id } : { receiverId: activeConversationId });
-      isTypingRef.current = false;
-    }
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
+    if (activeConversationId) {
+      storeStopTyping(activeConversationId, !!selectedGroup);
     }
   };
 
@@ -252,15 +240,7 @@ export function ChatComposer() {
   }, [activeConversationId]);
 
   const handleSend = async () => {
-    if (isTypingRef.current && activeConversationId) {
-      const socket = useAuthStore.getState().socket;
-      socket?.emit("stopTyping", selectedGroup ? { groupId: selectedGroup._id } : { receiverId: activeConversationId });
-      isTypingRef.current = false;
-    }
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
+    stopTyping();
 
     const didSendMessage = editingMessage
       ? await editMessage(editingMessage.id, composerText)
@@ -280,6 +260,8 @@ export function ChatComposer() {
     setComposerText(value);
     playSoundIfEnabled();
 
+    // Mention detection ... (keeping the same, skipping in old_string)
+    // ...
     // Mention detection
     const cursor = event.target.selectionStart;
     const textBeforeCursor = value.slice(0, cursor);
@@ -298,35 +280,13 @@ export function ChatComposer() {
       setMentionIndex(null);
     }
 
-    const socket = useAuthStore.getState().socket;
-    if (!socket || !activeConversationId) return;
-
-    if (!value.trim()) {
-      if (isTypingRef.current) {
-        socket.emit("stopTyping", selectedGroup ? { groupId: selectedGroup._id } : { receiverId: activeConversationId });
-        isTypingRef.current = false;
-      }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-        typingTimeoutRef.current = null;
-      }
-      return;
+    if (activeConversationId) {
+        if (!value.trim()) {
+            stopTyping();
+        } else {
+            dispatchTyping(activeConversationId, !!selectedGroup);
+        }
     }
-
-    if (!isTypingRef.current) {
-      isTypingRef.current = true;
-      socket.emit("typing", selectedGroup ? { groupId: selectedGroup._id } : { receiverId: activeConversationId });
-    }
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    typingTimeoutRef.current = setTimeout(() => {
-      socket.emit("stopTyping", selectedGroup ? { groupId: selectedGroup._id } : { receiverId: activeConversationId });
-      isTypingRef.current = false;
-      typingTimeoutRef.current = null;
-    }, 2000);
   };
 
   const handleMediaPick = async (event) => {
@@ -334,15 +294,7 @@ export function ChatComposer() {
     event.target.value = "";
     if (!file) return;
 
-    if (isTypingRef.current && activeConversationId) {
-      const socket = useAuthStore.getState().socket;
-      socket?.emit("stopTyping", selectedGroup ? { groupId: selectedGroup._id } : { receiverId: activeConversationId });
-      isTypingRef.current = false;
-    }
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
+    stopTyping();
 
     const didSendMessage = await sendMediaMessage({
       conversationId: activeConversationId,
@@ -353,7 +305,7 @@ export function ChatComposer() {
   };
 
   const handleCreatePoll = async (question, options) => {
-    if (isTypingRef.current) stopTyping();
+    stopTyping();
     return createPoll(activeConversationId, question, options);
   };
 

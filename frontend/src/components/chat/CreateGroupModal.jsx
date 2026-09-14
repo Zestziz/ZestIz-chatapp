@@ -4,6 +4,7 @@ import { UsersIcon, XIcon, CameraIcon } from "lucide-react";
 import { useChatStore } from "../../store/useChatStore";
 import { useFriendStore } from "../../store/useFriendStore";
 import { Avatar } from "@heroui/react";
+import { getInitials } from "../../hooks/useSelectedConversation";
 
 export function CreateGroupModal({ onClose }) {
   const friends = useFriendStore((state) => state.friends);
@@ -64,7 +65,10 @@ export function CreateGroupModal({ onClose }) {
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-6 space-y-6">
           <div className="flex justify-center">
             <label className="relative cursor-pointer group">
-              <Avatar className="size-20 border-2 border-zinc-800" src={imagePreview} />
+              <Avatar className="size-20 border-2 border-zinc-800">
+                <Avatar.Image src={imagePreview} />
+                <Avatar.Fallback><UsersIcon className="size-8 text-zinc-500" /></Avatar.Fallback>
+              </Avatar>
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
                 <CameraIcon className="size-6 text-white" />
               </div>
@@ -120,7 +124,10 @@ export function CreateGroupModal({ onClose }) {
                   onChange={() => toggleFriend(friend._id)}
                   className="accent-accent"
                 />
-                <Avatar className="size-8" src={friend.profilePic} />
+                <Avatar className="size-8">
+                  <Avatar.Image src={friend.profilePic || friend.avatarUrl || friend.imageUrl} alt={friend.fullName} />
+                  <Avatar.Fallback className="text-xs">{getInitials(friend.fullName)}</Avatar.Fallback>
+                </Avatar>
                 <div className="min-w-0">
                   <span className="block text-sm font-medium text-white truncate">{friend.fullName}</span>
                   <span className="block text-xs text-zinc-500 truncate">@{friend.username || "user"}</span>
