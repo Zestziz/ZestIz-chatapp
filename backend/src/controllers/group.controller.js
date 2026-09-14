@@ -7,8 +7,9 @@ import { hasImageKitConfig, uploadChatMedia } from "../lib/imagekit.js";
 
 const groupSelect = "_id name profilePic ownerId admins members createdAt updatedAt";
 function validId(id) { return mongoose.Types.ObjectId.isValid(id); }
-function isMember(group, userId) { return group.members.some((id) => id.toString() === userId.toString()); }
+function isMember(group, userId) { return group.members.some((id) => (id._id ?? id).toString() === userId.toString()); }
 function isAdmin(group, userId) { return group.ownerId.toString() === userId.toString() || group.admins.some((id) => id.toString() === userId.toString()); }
+function isOwner(group, userId) { return group.ownerId.toString() === userId.toString(); }
 
 async function eligibleMembers(user, ids) {
   const uniqueIds = [...new Set(ids.map(id => id.toString()))];
@@ -113,7 +114,6 @@ export async function sendGroupMessage(req, res) {
       for (const socketId of sockets) {
         io.to(socketId).emit("newGroupMessage", message);
       }
-      // Emitting mention events
       if (uniqueMentions.includes(String(memberId._id))) {
         for (const socketId of sockets) {
           io.to(socketId).emit("userMentioned", {
@@ -159,45 +159,116 @@ export async function updateGroupMembers(req, res) {
   const group = await Group.findById(req.params.groupId);
   if (!group) return res.status(404).json({ message: "Group not found" });
   const { action, userId } = req.body;
+
+  // --- ACTION: leave ---
   if (action === "leave") {
     if (!isMember(group, req.user._id)) return res.status(400).json({ message: "You are not a member" });
-    if (String(group.ownerId) === String(req.user._id)) {
+
+    if (isOwner(group, req.user._id)) {
+      // Last member: delete the group entirely
+      if (group.members.length <= 1) {
+        await Message.deleteMany({ groupId: group._id });
+        await Group.findByIdAndDelete(group._id);
+        const ownerSockets = getReceiverSocketId(req.user._id);
+        if (ownerSockets) io.to(ownerSockets).emit("groupRemoved", { groupId: String(group._id) });
+        return res.json({ deleted: true, groupId: String(group._id) });
+      }
+      // Must transfer ownership before leaving
       const { transferTo } = req.body;
       if (!validId(transferTo) || String(transferTo) === String(req.user._id) || !isMember(group, transferTo)) {
         return res.status(400).json({ message: "Transfer ownership to another group member before leaving" });
       }
-      group.ownerId = transferTo;
-      if (!group.admins.some((id) => String(id) === String(transferTo))) group.admins.push(transferTo);
-      group.members = group.members.filter((id) => String(id) !== String(req.user._id));
-      group.admins = group.admins.filter((id) => String(id) !== String(req.user._id));
-      await group.save();
-      const oldOwnerSockets = getReceiverSocketId(req.user._id);
-      if (oldOwnerSockets) for (const socketId of oldOwnerSockets) io.to(socketId).emit("groupRemoved", { groupId: String(group._id) });
-      return res.json(await emitGroupUpdate(group));
+      group.ownerId = new mongoose.Types.ObjectId(transferTo);
+      await Group.updateOne({ _id: group._id }, { $addToSet: { admins: new mongoose.Types.ObjectId(transferTo) } });
+      await Group.updateOne({ _id: group._id }, { $pull: { members: req.user._id, admins: req.user._id } });
+      const updatedGroup = await Group.findById(group._id);
+      const ownerSockets = getReceiverSocketId(req.user._id);
+      if (ownerSockets) io.to(ownerSockets).emit("groupRemoved", { groupId: String(group._id) });
+      return res.json(await emitGroupUpdate(updatedGroup));
     }
-    group.members = group.members.filter((id) => String(id) !== String(req.user._id)); group.admins = group.admins.filter((id) => String(id) !== String(req.user._id));
-  } else {
-    if (!isAdmin(group, req.user._id)) return res.status(403).json({ message: "Only group admins can manage members" });
-    if (!validId(userId)) return res.status(400).json({ message: "Invalid user ID" });
-    if (action === "add") { if (isMember(group, userId)) return res.status(400).json({ message: "User is already a member" }); const eligible = await eligibleMembers(req.user, [userId]); if (!eligible) return res.status(403).json({ message: "User is not an eligible connected friend" }); group.members.push(userId); }
-    else if (action === "remove") { if (String(group.ownerId) === String(userId)) return res.status(400).json({ message: "The owner cannot be removed" }); if (!isMember(group, userId)) return res.status(400).json({ message: "User is not a member" }); if (String(group.ownerId) !== String(req.user._id) && group.admins.some((id) => String(id) === String(userId))) return res.status(403).json({ message: "Admins can only remove normal members" }); group.members = group.members.filter((id) => String(id) !== String(userId)); group.admins = group.admins.filter((id) => String(id) !== String(userId)); const sockets = getReceiverSocketId(userId); if (sockets) for (const socketId of sockets) io.to(socketId).emit("groupRemoved", { groupId: String(group._id) }); }
-    else return res.status(400).json({ message: "Invalid member action" });
+
+    // Regular member / admin leaving
+    await Group.updateOne({ _id: group._id }, { $pull: { members: req.user._id, admins: req.user._id } });
+    const updatedGroup = await Group.findById(group._id);
+    const leaverSockets = getReceiverSocketId(req.user._id);
+    if (leaverSockets) io.to(leaverSockets).emit("groupRemoved", { groupId: String(group._id) });
+    return res.json(await emitGroupUpdate(updatedGroup));
   }
-  await group.save();
-  res.json(await emitGroupUpdate(group));
+
+  // --- ACTION: transfer (owner-only, stays in group) ---
+  if (action === "transfer") {
+    if (!isOwner(group, req.user._id)) return res.status(403).json({ message: "Only the owner can transfer ownership" });
+    if (!validId(userId) || String(userId) === String(req.user._id) || !isMember(group, userId)) {
+      return res.status(400).json({ message: "Select a valid group member to transfer ownership to" });
+    }
+    await Group.updateOne({ _id: group._id }, {
+      $set: { ownerId: new mongoose.Types.ObjectId(userId) },
+      $addToSet: { admins: new mongoose.Types.ObjectId(userId) },
+    });
+    const updatedGroup = await Group.findById(group._id);
+    return res.json(await emitGroupUpdate(updatedGroup));
+  }
+
+  // --- ACTION: add / remove (admin only) ---
+  if (!isAdmin(group, req.user._id)) return res.status(403).json({ message: "Only group admins can manage members" });
+  if (!validId(userId)) return res.status(400).json({ message: "Invalid user ID" });
+
+  if (action === "add") {
+    if (isMember(group, userId)) return res.status(400).json({ message: "User is already a member" });
+    const eligible = await eligibleMembers(req.user, [userId]);
+    if (!eligible) return res.status(403).json({ message: "User is not an eligible connected friend" });
+    await Group.updateOne({ _id: group._id }, { $addToSet: { members: new mongoose.Types.ObjectId(userId) } });
+    const updatedGroup = await Group.findById(group._id);
+    return res.json(await emitGroupUpdate(updatedGroup));
+  }
+
+  if (action === "remove") {
+    // Owner is strictly untouchable
+    if (isOwner(group, userId)) return res.status(403).json({ message: "The group owner cannot be removed" });
+    if (!isMember(group, userId)) return res.status(400).json({ message: "User is not a member" });
+    // Admin can remove fellow admins (per requirements), but not the owner (already guarded above)
+    await Group.updateOne({ _id: group._id }, { $pull: { members: new mongoose.Types.ObjectId(userId), admins: new mongoose.Types.ObjectId(userId) } });
+    const updatedGroup = await Group.findById(group._id);
+    const kickedSockets = getReceiverSocketId(userId);
+    if (kickedSockets) io.to(kickedSockets).emit("groupRemoved", { groupId: String(group._id) });
+    return res.json(await emitGroupUpdate(updatedGroup));
+  }
+
+  return res.status(400).json({ message: "Invalid member action" });
 }
 
+// Handles promote and demote. Owner and admins can both promote; only owner can demote (per spec,
+// admins can demote fellow admins too, but NOT the owner.)
 export async function updateGroupMemberRole(req, res) {
   const { groupId, userId } = req.params;
   if (!validId(groupId) || !validId(userId)) return res.status(400).json({ message: "Invalid group or user ID" });
   const group = await Group.findById(groupId);
   if (!group) return res.status(404).json({ message: "Group not found" });
-  if (String(group.ownerId) !== String(req.user._id)) return res.status(403).json({ message: "Only the owner can manage admins" });
+
+  // Only admins/owner may change roles
+  if (!isAdmin(group, req.user._id)) return res.status(403).json({ message: "Only group admins can manage roles" });
+
+  // The owner is absolutely untouchable — no role change can target them
+  if (isOwner(group, String(userId))) return res.status(403).json({ message: "The group owner's role cannot be changed" });
+
   if (!isMember(group, userId)) return res.status(400).json({ message: "User is not a member" });
-  if (String(group.ownerId) === String(userId)) return res.status(400).json({ message: "The owner is already above admin" });
-  if (group.admins.some((id) => String(id) === String(userId))) return res.status(409).json({ message: "User is already an admin" });
-  if (req.body.role !== "admin") return res.status(400).json({ message: "Invalid group role" });
-  group.admins.push(userId);
-  await group.save();
-  res.json(await emitGroupUpdate(group));
+
+  const { role } = req.body;
+
+  if (role === "admin") {
+    if (group.admins.some((id) => String(id) === String(userId))) {
+      return res.status(409).json({ message: "User is already an admin" });
+    }
+    await Group.updateOne({ _id: group._id }, { $addToSet: { admins: new mongoose.Types.ObjectId(userId) } });
+  } else if (role === "member") {
+    if (!group.admins.some((id) => String(id) === String(userId))) {
+      return res.status(409).json({ message: "User is already a regular member" });
+    }
+    await Group.updateOne({ _id: group._id }, { $pull: { admins: new mongoose.Types.ObjectId(userId) } });
+  } else {
+    return res.status(400).json({ message: "Invalid role. Use 'admin' or 'member'" });
+  }
+
+  const updatedGroup = await Group.findById(group._id);
+  res.json(await emitGroupUpdate(updatedGroup));
 }

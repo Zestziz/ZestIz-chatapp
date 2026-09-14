@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "@heroui/react";
-import { BarChart3Icon, CornerUpLeftIcon, PencilIcon, PinIcon, SmilePlusIcon, Trash2Icon, MoreHorizontalIcon, CopyIcon, AtSignIcon } from "lucide-react";
+import { CornerUpLeftIcon, PencilIcon, PinIcon, SmilePlusIcon, Trash2Icon, CopyIcon, AtSignIcon, ClockIcon, AlertCircleIcon } from "lucide-react";
 import { withTransform } from "../../lib/imagekit";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
@@ -76,12 +76,9 @@ function renderFormattedMessage(text, isOwnMessage) {
 export function MessageBubble({ message, onReply, onNavigateToReply }) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isActionsOpen, setIsActionsOpen] = useState(false);
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const pickerRef = useRef(null);
-  const moreRef = useRef(null);
   const authUser = useAuthStore((state) => state.authUser);
   const reactToMessage = useChatStore((state) => state.reactToMessage);
   const startEditingMessage = useChatStore((state) => state.startEditingMessage);
@@ -225,6 +222,8 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
         )}
         <div
           className={`relative break-words min-w-0 ${
+            message.status === "sending" ? "opacity-75 transition-opacity" : ""
+          } ${
             hasPoll
               ? "w-full max-w-[min(90vw,24rem)] sm:max-w-[min(85vw,26rem)]"
               : `w-fit max-w-[80%] rounded-[18px] px-3 py-2 text-[14px] leading-relaxed sm:max-w-[70%] sm:px-3.5 ${
@@ -234,7 +233,7 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
                 }`
           }`}
         >
-        <div className={`absolute top-1/2 z-20 gap-0.5 rounded-xl border border-border/70 bg-background/95 p-0.5 shadow-sm ${isOwnMessage ? "right-full mr-1" : "left-full ml-1"} -translate-y-1/2 ${isActionsOpen ? "flex" : "hidden sm:flex sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"}`} onClick={(event) => event.stopPropagation()}>
+        <div className={`absolute top-1/2 z-20 gap-0.5 rounded-xl border border-border/70 bg-background/95 p-0.5 shadow-sm ${isOwnMessage ? "right-full mr-1" : "left-full ml-1"} -translate-y-1/2 hidden sm:flex sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100`} onClick={(event) => event.stopPropagation()}>
           <button
             type="button"
             className="flex size-7 items-center justify-center rounded-full border border-border bg-background/95 text-muted shadow-sm transition-colors hover:text-foreground"
@@ -416,12 +415,18 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
           {message.time}
           {message.editedAt ? <span aria-label="Edited">· edited</span> : null}
           {isOwnMessage ? (
-            <span
-              className={message.readAt ? "text-accent-foreground" : ""}
-              aria-label={message.readAt ? "Read" : message.deliveredAt ? "Delivered" : "Sent"}
-            >
-              {message.deliveredAt ? "✓✓" : "✓"}
-            </span>
+            message.status === "sending" ? (
+              <ClockIcon className="size-3 text-accent-foreground/60 animate-pulse" aria-label="Sending" />
+            ) : message.status === "error" ? (
+              <AlertCircleIcon className="size-3 text-danger" aria-label="Failed to send" />
+            ) : (
+              <span
+                className={message.readAt ? "text-accent-foreground" : ""}
+                aria-label={message.readAt ? "Read" : message.deliveredAt ? "Delivered" : "Sent"}
+              >
+                {message.deliveredAt ? "✓✓" : "✓"}
+              </span>
+            )
           ) : null}
         </p>
       </div>

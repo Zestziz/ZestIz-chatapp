@@ -265,7 +265,14 @@ export function ChatComposer() {
     const didSendMessage = editingMessage
       ? await editMessage(editingMessage.id, composerText)
       : await sendTextMessage(activeConversationId);
-    if (didSendMessage) playSoundIfEnabled();
+    if (didSendMessage) {
+      playSoundIfEnabled();
+    }
+
+    // Retain focus
+    setTimeout(() => {
+        textAreaRef.current?.focus();
+    }, 0);
   };
 
   const handleComposerTextChange = (event) => {
@@ -537,7 +544,14 @@ export function ChatComposer() {
           className="min-w-0 flex-1 rounded-[14px]"
         />
 
-        <Button variant="primary" isIconOnly isDisabled={!composerText.trim()} onPress={handleSend}>
+        <Button
+          variant="primary"
+          isIconOnly
+          isDisabled={!composerText.trim()}
+          onPress={handleSend}
+          onMouseDown={(e) => e.preventDefault()}
+          onTouchStart={(e) => e.preventDefault()}
+        >
           <SendHorizontalIcon className="size-5" />
         </Button>
         </div>

@@ -24,13 +24,13 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers, lastSeen
   const mappedMessages = messages.map((message) => {
     const isOwn = String(message.senderId) === String(authUser?._id);
     return {
-      id: message._id,
+      id: message._id || message.id,
       senderId: message.senderId,
       role: isOwn ? "me" : "them",
       senderName: isOwn ? "You" : user.fullName,
       senderPic: isOwn ? authUser?.profilePic : user.profilePic,
       text: message.text || "",
-      time: formatMessageTime(message.createdAt),
+      time: formatMessageTime(message.createdAt || new Date()),
       imageUrl: message.image,
       videoUrl: message.video,
       audio: message.audio || null,
@@ -43,9 +43,10 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers, lastSeen
       isPinned: message.isPinned || false,
       pinnedAt: message.pinnedAt,
       reactions: message.reactions || [],
+      status: message.status || (message.deliveredAt ? "delivered" : "sent"),
       replyTo: message.replyTo && typeof message.replyTo === "object"
         ? {
-            id: message.replyTo._id,
+            id: message.replyTo._id || message.replyTo.id,
             senderName:
               String(message.replyTo.senderId) === String(authUser?._id) ? "You" : user.fullName,
             text: message.replyTo.text || "",
@@ -81,13 +82,13 @@ function mapGroupToConversation({ group, messages, authUser }) {
     const senderName = isOwn ? "You" : sender?.fullName || "Member";
     const senderPic = isOwn ? authUser?.profilePic : sender?.profilePic;
     return {
-      id: message._id,
+      id: message._id || message.id,
       senderId: message.senderId,
       role: isOwn ? "me" : "them",
       senderName,
       senderPic,
       text: message.text || "",
-      time: formatMessageTime(message.createdAt),
+      time: formatMessageTime(message.createdAt || new Date()),
       imageUrl: message.image,
       videoUrl: message.video,
       audio: message.audio || null,
@@ -100,8 +101,9 @@ function mapGroupToConversation({ group, messages, authUser }) {
       isPinned: message.isPinned || false,
       pinnedAt: message.pinnedAt,
       reactions: message.reactions || [],
+      status: message.status || (message.deliveredAt ? "delivered" : "sent"),
       replyTo: message.replyTo && typeof message.replyTo === "object" ? {
-        id: message.replyTo._id,
+        id: message.replyTo._id || message.replyTo.id,
         senderName: String(message.replyTo.senderId) === String(authUser?._id) ? "You" : group.members?.find((member) => String(member._id) === String(message.replyTo.senderId))?.fullName || "Member",
         text: message.replyTo.text || "",
         imageUrl: message.replyTo.image,

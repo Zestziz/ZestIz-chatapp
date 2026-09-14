@@ -209,6 +209,20 @@ export const useChatStore = create(
         }
       },
 
+      transferOwnership: async (groupId, userId) => {
+        try {
+          const res = await axiosInstance.post(`/groups/${groupId}/members`, { action: "transfer", userId });
+          set((state) => ({
+            groups: state.groups.map((group) => String(group._id) === String(groupId) ? { ...group, ...res.data } : group),
+            selectedGroup: res.data,
+          }));
+          return true;
+        } catch (error) {
+          toast.error(error.response?.data?.message || "Failed to transfer ownership");
+          return false;
+        }
+      },
+
       getMessages: async (userId) => {
         if (!userId) return;
         set({ isMessagesLoading: true });
@@ -449,6 +463,47 @@ export const useChatStore = create(
         const { selectedUser, selectedGroup, messages, replyingTo } = get();
         if (!selectedUser && !selectedGroup) return false;
 
+        const tempId = `temp-${Date.now()}`;
+        const authUser = useAuthStore.getState().authUser;
+
+        // Optimistic UI: Prepare optimistic message
+        let imageUrl = null;
+        let text;
+        if (messageData instanceof FormData) {
+          text = messageData.get("text") || "";
+          const file = messageData.get("media");
+          if (file && file.type?.startsWith("image/")) {
+            imageUrl = URL.createObjectURL(file);
+          }
+        } else {
+          text = messageData.text || "";
+        }
+
+        const optimisticMessage = {
+          _id: tempId,
+          id: tempId,
+          senderId: authUser?._id,
+          senderName: "You",
+          senderPic: authUser?.profilePic,
+          text: text,
+          image: imageUrl,
+          createdAt: new Date().toISOString(),
+          status: "sending",
+          reactions: [],
+          replyTo: replyingTo ? {
+            id: replyingTo._id || replyingTo.id,
+            senderName: replyingTo.senderName, // simplified; assuming replyTo is already structured or just passed through
+            text: replyingTo.text,
+          } : null,
+        };
+
+        // Apply optimistic update
+        set({
+          messages: [...messages, optimisticMessage],
+          composerText: "",
+          replyingTo: null
+        });
+
         try {
           const replyToId = replyingTo?._id || replyingTo?.id;
           if (replyToId) {
@@ -457,11 +512,20 @@ export const useChatStore = create(
           }
           const target = selectedGroup ? `/groups/${selectedGroup._id}/messages` : `/messages/send/${selectedUser._id}`;
           const res = await axiosInstance.post(target, messageData);
-          set({ messages: [...messages, res.data], composerText: "", replyingTo: null });
+
+          // Reconcile with server data
+          set((state) => ({
+            messages: state.messages.map(msg => msg._id === tempId ? res.data : msg)
+          }));
+
           selectedGroup ? get().getGroups() : get().getConversations();
           return true;
         } catch (error) {
           toast.error(error.response?.data?.message || "Failed to send message");
+          // Mark as error
+          set((state) => ({
+            messages: state.messages.map(msg => msg._id === tempId ? { ...msg, status: "error" } : msg)
+          }));
           return false;
         }
       },
@@ -489,7 +553,7 @@ export const useChatStore = create(
         socket.off("groupStopTyping");
         socket.off("userMentioned");
 
-        socket.on("userMentioned", ({ messageId, groupId, senderId, text }) => {
+        socket.on("userMentioned", ({ groupId, senderId, text }) => {
           const currentUserId = useAuthStore.getState().authUser?._id;
           if (String(senderId) === String(currentUserId)) return;
           const activeConversationId = get().activeConversationId;
