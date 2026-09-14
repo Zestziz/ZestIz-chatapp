@@ -1,0 +1,23 @@
+import express from "express";
+import { protectRoute } from "../middleware/auth.middleware.js";
+import { upload } from "../middleware/upload.middleware.js";
+import { createGroup, getGroups, getGroupMessages, sendGroupMessage, searchGroupMessages, updateGroup, updateGroupMembers, updateGroupMemberRole } from "../controllers/group.controller.js";
+import { closePoll, createGroupPoll, votePoll } from "../controllers/poll.controller.js";
+import { getPinnedMessages, updatePin } from "../controllers/pin.controller.js";
+
+const router = express.Router();
+router.use(protectRoute);
+router.get("/", getGroups);
+router.post("/", upload.single("media"), createGroup);
+router.get("/:groupId/messages", getGroupMessages);
+router.get("/:groupId/search", searchGroupMessages);
+router.post("/:groupId/messages", upload.single("media"), sendGroupMessage);
+router.post("/:groupId/poll", createGroupPoll);
+router.post("/:groupId/poll/:messageId/vote", votePoll);
+router.patch("/:groupId/poll/:messageId/close", closePoll);
+router.patch("/:groupId/messages/:messageId/pin", updatePin);
+router.get("/:groupId/pinned", getPinnedMessages);
+router.patch("/:groupId", upload.single("media"), updateGroup);
+router.post("/:groupId/members", updateGroupMembers);
+router.patch("/:groupId/members/:userId/role", updateGroupMemberRole);
+export default router;

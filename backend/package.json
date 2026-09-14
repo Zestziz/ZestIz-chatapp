@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rm -rf dist && cp -R src dist",
+    "dev": "nodemon src/index.js",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@clerk/express": "^2.1.63",
+    "@imagekit/nodejs": "^7.11.0",
+    "cors": "^2.8.6",
+    "cron": "^4.4.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.9.4",
+    "multer": "^2.2.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
