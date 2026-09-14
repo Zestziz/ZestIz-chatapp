@@ -24,9 +24,7 @@ function ChatPage() {
   const { activeConversation, activeConversationId, isLargeScreen } = useSelectedConversation();
 
   useEffect(() => {
-    getUsers();
-    getConversations();
-    getGroups();
+    Promise.allSettled([getUsers(), getConversations(), getGroups()]);
   }, [getConversations, getGroups, getUsers]);
 
   useEffect(() => {

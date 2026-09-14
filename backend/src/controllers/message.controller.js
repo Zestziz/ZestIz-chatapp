@@ -17,7 +17,9 @@ export async function getUsersForSidebar(req, res) {
         $nin: req.user.blockedUsers || [],
       },
       blockedUsers: { $ne: loggedInUserId },
-    }).select("-clerkId");
+    })
+      .select("-clerkId")
+      .lean();
 
     res.status(200).json(filteredUsers);
   } catch (error) {
@@ -30,7 +32,7 @@ export async function getConversationsForSidebar(req, res) {
   try {
     const loggedInUserId = req.user._id;
 
-    const usersWhoBlockedMe = await User.find({ blockedUsers: loggedInUserId }).select("_id");
+    const usersWhoBlockedMe = await User.find({ blockedUsers: loggedInUserId }).select("_id").lean();
     const excludeIds = [
       ...(req.user.blockedUsers || []),
       ...usersWhoBlockedMe.map((u) => u._id),
@@ -111,9 +113,11 @@ export async function getMessages(req, res) {
         path: "replyTo",
         select: "_id text image video audio poll senderId createdAt deletedAt",
       })
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
 
-    res.status(200).json(messages);
+    res.status(200).json(messages.reverse());
   } catch (error) {
     console.error("Error in getMessages:", error.message);
     res.status(500).json({ message: "Internal server error" });

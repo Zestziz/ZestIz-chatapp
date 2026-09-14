@@ -232,7 +232,8 @@ export async function getPendingRequests(req, res) {
         path: "friendRequests.sender",
         select: "_id fullName email profilePic",
       })
-      .select("friendRequests");
+      .select("friendRequests")
+      .lean();
 
     const incoming = (currentUser?.friendRequests || [])
       .filter((r) => r.status === "pending" && r.sender)
@@ -251,7 +252,9 @@ export async function getPendingRequests(req, res) {
           status: "pending",
         },
       },
-    }).select("_id fullName email profilePic friendRequests");
+    })
+      .select("_id fullName email profilePic friendRequests")
+      .lean();
 
     const outgoing = [];
     for (const u of outgoingUsers) {
@@ -286,7 +289,7 @@ export async function getFriends(req, res) {
     const user = await User.findById(req.user._id).populate({
       path: "friends",
       select: "_id fullName email profilePic privacySettings",
-    });
+    }).lean();
 
     res.status(200).json(user.friends || []);
   } catch (error) {
@@ -399,7 +402,7 @@ export async function getBlockedUsers(req, res) {
     const user = await User.findById(req.user._id).populate({
       path: "blockedUsers",
       select: "_id fullName email profilePic",
-    });
+    }).lean();
 
     res.status(200).json(user.blockedUsers || []);
   } catch (error) {

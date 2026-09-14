@@ -104,6 +104,9 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+messageSchema.index({ groupId: 1, createdAt: -1 });
+
 messageSchema.pre("validate", function validateConversation() {
   const hasPrivateConversation = Boolean(this.receiverId);
   const hasGroupConversation = Boolean(this.groupId);

@@ -4,6 +4,8 @@ import { useAuthStore } from "./useAuthStore";
 import { useChatStore } from "./useChatStore";
 import toast from "react-hot-toast";
 
+const STALE_TIME = 2.5 * 60 * 1000; // 2.5 minutes
+
 export const useFriendStore = create((set, get) => ({
   friends: [],
   blockedUsers: [],
@@ -15,11 +17,25 @@ export const useFriendStore = create((set, get) => ({
   isBlockedLoading: false,
   isPendingLoading: false,
 
-  getFriends: async () => {
-    set({ isFriendsLoading: true });
+  lastFetchedFriends: 0,
+  lastFetchedBlocked: 0,
+  lastFetchedPending: 0,
+
+  getFriends: async (force = false) => {
+    const { friends, lastFetchedFriends } = get();
+    const isStale = Date.now() - lastFetchedFriends > STALE_TIME;
+
+    if (!force && friends.length > 0 && !isStale) {
+      return;
+    }
+
+    if (friends.length === 0) {
+      set({ isFriendsLoading: true });
+    }
+
     try {
       const res = await axiosInstance.get("/friends");
-      set({ friends: res.data });
+      set({ friends: res.data, lastFetchedFriends: Date.now() });
     } catch (error) {
       console.error("Error in getFriends:", error.message);
     } finally {
@@ -27,11 +43,21 @@ export const useFriendStore = create((set, get) => ({
     }
   },
 
-  fetchBlockedUsers: async () => {
-    set({ isBlockedLoading: true });
+  fetchBlockedUsers: async (force = false) => {
+    const { blockedUsers, lastFetchedBlocked } = get();
+    const isStale = Date.now() - lastFetchedBlocked > STALE_TIME;
+
+    if (!force && blockedUsers.length > 0 && !isStale) {
+      return;
+    }
+
+    if (blockedUsers.length === 0) {
+      set({ isBlockedLoading: true });
+    }
+
     try {
       const res = await axiosInstance.get("/friends/blocked");
-      set({ blockedUsers: res.data });
+      set({ blockedUsers: res.data, lastFetchedBlocked: Date.now() });
     } catch (error) {
       console.error("Error in fetchBlockedUsers:", error.message);
     } finally {
@@ -39,13 +65,24 @@ export const useFriendStore = create((set, get) => ({
     }
   },
 
-  getPendingRequests: async () => {
-    set({ isPendingLoading: true });
+  getPendingRequests: async (force = false) => {
+    const { incomingRequests, outgoingRequests, lastFetchedPending } = get();
+    const isStale = Date.now() - lastFetchedPending > STALE_TIME;
+
+    if (!force && (incomingRequests.length > 0 || outgoingRequests.length > 0) && !isStale) {
+      return;
+    }
+
+    if (incomingRequests.length === 0 && outgoingRequests.length === 0) {
+      set({ isPendingLoading: true });
+    }
+
     try {
       const res = await axiosInstance.get("/friends/pending");
       set({
         incomingRequests: res.data.incoming,
         outgoingRequests: res.data.outgoing,
+        lastFetchedPending: Date.now(),
       });
     } catch (error) {
       console.error("Error in getPendingRequests:", error.message);

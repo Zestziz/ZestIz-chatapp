@@ -101,13 +101,23 @@ export const useChatStore = create(
       searchRequestId: 0,
       profileUser: null,
       pinnedMessages: [],
+      messagesByChatId: {},
+      lastFetchedChats: {},
+      lastFetchedUsers: 0,
+      lastFetchedConversations: 0,
+      lastFetchedGroups: 0,
 
-      getUsers: async () => {
-        set({ isUsersLoading: true });
+      getUsers: async (force = false) => {
+        const { users, lastFetchedUsers } = get();
+        const isStale = Date.now() - lastFetchedUsers > 2.5 * 60 * 1000;
+        if (!force && users.length > 0 && !isStale) return;
+
+        if (users.length === 0) set({ isUsersLoading: true });
         try {
           const res = await axiosInstance.get("/messages/users");
           set((state) => ({
             users: res.data,
+            lastFetchedUsers: Date.now(),
             selectedUser:
               state.selectedUser && res.data.some((user) => user._id === state.selectedUser._id)
                 ? state.selectedUser
@@ -120,11 +130,15 @@ export const useChatStore = create(
         }
       },
 
-      getConversations: async () => {
-        set({ isConversationsLoading: true });
+      getConversations: async (force = false) => {
+        const { conversations, lastFetchedConversations } = get();
+        const isStale = Date.now() - lastFetchedConversations > 2.5 * 60 * 1000;
+        if (!force && conversations.length > 0 && !isStale) return;
+
+        if (conversations.length === 0) set({ isConversationsLoading: true });
         try {
           const res = await axiosInstance.get("/messages/conversations");
-          set({ conversations: res.data });
+          set({ conversations: res.data, lastFetchedConversations: Date.now() });
         } catch (error) {
           console.log("Error in getConversations", error.message);
         } finally {
@@ -132,21 +146,40 @@ export const useChatStore = create(
         }
       },
 
-      getGroups: async () => {
+      getGroups: async (force = false) => {
+        const { groups, lastFetchedGroups } = get();
+        const isStale = Date.now() - lastFetchedGroups > 2.5 * 60 * 1000;
+        if (!force && groups.length > 0 && !isStale) return;
+
         try {
           const res = await axiosInstance.get("/groups");
-          set({ groups: res.data });
+          set({ groups: res.data, lastFetchedGroups: Date.now() });
         } catch (error) {
           console.log("Error in getGroups", error.message);
         }
       },
 
-      getGroupMessages: async (groupId) => {
+      getGroupMessages: async (groupId, force = false) => {
         if (!groupId) return;
-        set({ isMessagesLoading: true });
+        const chatId = `group:${groupId}`;
+        const { messagesByChatId, lastFetchedChats } = get();
+        const cached = messagesByChatId[chatId] || [];
+        const isStale = Date.now() - (lastFetchedChats[chatId] || 0) > 2.5 * 60 * 1000;
+
+        if (cached.length > 0) {
+          set({ messages: cached });
+          if (!isStale && !force) return;
+        } else {
+          set({ messages: [], isMessagesLoading: true });
+        }
+
         try {
           const res = await axiosInstance.get(`/groups/${groupId}/messages`);
-          set({ messages: res.data });
+          set((state) => ({
+            messages: res.data,
+            messagesByChatId: { ...state.messagesByChatId, [chatId]: res.data },
+            lastFetchedChats: { ...state.lastFetchedChats, [chatId]: Date.now() },
+          }));
         } catch (error) {
           toast.error(error.response?.data?.message || "Failed to load group messages");
         } finally {
@@ -223,12 +256,27 @@ export const useChatStore = create(
         }
       },
 
-      getMessages: async (userId) => {
+      getMessages: async (userId, force = false) => {
         if (!userId) return;
-        set({ isMessagesLoading: true });
+        const chatId = String(userId);
+        const { messagesByChatId, lastFetchedChats } = get();
+        const cached = messagesByChatId[chatId] || [];
+        const isStale = Date.now() - (lastFetchedChats[chatId] || 0) > 2.5 * 60 * 1000;
+
+        if (cached.length > 0) {
+          set({ messages: cached });
+          if (!isStale && !force) return;
+        } else {
+          set({ messages: [], isMessagesLoading: true });
+        }
+
         try {
           const res = await axiosInstance.get(`/messages/${userId}`);
-          set({ messages: res.data });
+          set((state) => ({
+            messages: res.data,
+            messagesByChatId: { ...state.messagesByChatId, [chatId]: res.data },
+            lastFetchedChats: { ...state.lastFetchedChats, [chatId]: Date.now() },
+          }));
         } catch (error) {
           toast.error(error.response?.data?.message || "Failed to load messages");
         } finally {

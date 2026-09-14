@@ -8,6 +8,7 @@ import { useChatStore } from "../../store/useChatStore";
 import { MessageVideo } from "./MessageVideo";
 import { MessageAudio } from "./MessageAudio";
 import { PollCard } from "./PollCard";
+import { ImageViewerModal } from "./ImageViewerModal";
 import { getInitials } from "../../hooks/useSelectedConversation";
 import toast from "react-hot-toast";
 
@@ -78,6 +79,7 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const pickerRef = useRef(null);
   const authUser = useAuthStore((state) => state.authUser);
   const reactToMessage = useChatStore((state) => state.reactToMessage);
@@ -370,7 +372,15 @@ export function MessageBubble({ message, onReply, onNavigateToReply }) {
               <img
                 src={withTransform(message.imageUrl, IMAGE_TRANSFORM)}
                 alt=""
-                className="mb-1.5 max-h-40 max-w-full rounded-lg object-cover sm:max-h-52 sm:rounded-xl"
+                className="mb-1.5 max-h-40 max-w-full rounded-lg object-cover sm:max-h-52 sm:rounded-xl cursor-pointer hover:opacity-90 transition-opacity active:scale-[0.99]"
+                onClick={(e) => { e.stopPropagation(); setIsImageViewerOpen(true); }}
+              />
+            ) : null}
+            {isImageViewerOpen ? (
+              <ImageViewerModal
+                imageUrl={message.imageUrl}
+                alt={message.text || "Image attachment"}
+                onClose={() => setIsImageViewerOpen(false)}
               />
             ) : null}
             {hasVideo ? <MessageVideo src={message.videoUrl} /> : null}

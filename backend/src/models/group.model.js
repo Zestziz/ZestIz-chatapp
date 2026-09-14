@@ -11,4 +11,6 @@ const groupSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+groupSchema.index({ members: 1 });
+
 export default mongoose.model("Group", groupSchema);
