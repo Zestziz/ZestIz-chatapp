@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useChatStore } from "../../store/useChatStore";
 import { APP_NAME, AppLogo } from "../AppLogo";
+import { DeleteConversationModal } from "./DeleteConversationModal";
 
 import { SearchField, Tabs } from "@heroui/react";
 import { MessageSquareIcon, UsersIcon, UserPlusIcon, UsersRoundIcon } from "lucide-react";
@@ -40,8 +41,11 @@ function ChatSidebar({ onOpenProfile }) {
   const conversations = useChatStore((state) => state.conversations);
   const groups = useChatStore((state) => state.groups);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const users = useChatStore((state) => state.users);
+  const deleteConversation = useChatStore((state) => state.deleteConversation);
 
   const searchQuery = useChatStore((state) => state.searchQuery);
   const setSearchQuery = useChatStore((state) => state.setSearchQuery);
@@ -73,13 +77,14 @@ function ChatSidebar({ onOpenProfile }) {
   }));
   const allUsers = users.map((user) => mapUserForList(user, onlineUsers, lastSeenByUser));
 
-  const allConversations = [...conversationUsers, ...groupRows].sort((a, b) => new Date(b.lastMessage?.createdAt || 0) - new Date(a.lastMessage?.createdAt || 0));
+  const activeConversations = [...conversationUsers, ...groupRows.filter(g => g.lastMessage)].sort((a, b) => new Date(b.lastMessage?.createdAt || 0) - new Date(a.lastMessage?.createdAt || 0));
+
   const filteredConversations = normalizedSearchQuery
-    ? allConversations.filter((conversation) =>
+    ? [...activeConversations, ...groupRows.filter(g => !g.lastMessage)].filter((conversation) =>
       conversation.peer.name.toLowerCase().includes(normalizedSearchQuery) ||
-      conversation.username?.toLowerCase().includes(normalizedSearchQuery),
-      )
-    : allConversations;
+      conversation.username?.toLowerCase().includes(normalizedSearchQuery)
+    )
+    : activeConversations;
 
   const filteredUsers = normalizedSearchQuery
     ? allUsers.filter((user) =>
@@ -87,6 +92,19 @@ function ChatSidebar({ onOpenProfile }) {
         user.username?.toLowerCase().includes(normalizedSearchQuery),
       )
     : allUsers;
+
+  const handleDeleteConfirm = async () => {
+    if (!conversationToDelete) return;
+    setIsDeleting(true);
+    try {
+      const success = await deleteConversation(conversationToDelete.conversationId || conversationToDelete.id);
+      if (success) {
+        setConversationToDelete(null);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <aside
@@ -163,6 +181,7 @@ function ChatSidebar({ onOpenProfile }) {
                 selected={conversation.id === activeConversationId}
                 onSelect={() => setActiveConversationId(conversation.id)}
                 onProfile={() => onOpenProfile(conversation.id)}
+                onDelete={() => setConversationToDelete(conversation)}
               />
             ))
           )}
@@ -194,6 +213,15 @@ function ChatSidebar({ onOpenProfile }) {
         </Tabs.Panel>
       </Tabs>
       {isCreateGroupOpen ? <CreateGroupModal onClose={() => setIsCreateGroupOpen(false)} /> : null}
+
+      <DeleteConversationModal
+        isOpen={!!conversationToDelete}
+        onClose={() => setConversationToDelete(null)}
+        onConfirm={handleDeleteConfirm}
+        userName={conversationToDelete?.name}
+        isGroup={conversationToDelete?.isGroup}
+        isLoading={isDeleting}
+      />
     </aside>
   );
 }

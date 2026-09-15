@@ -35,7 +35,11 @@ async function emitGroupUpdate(group) {
 
 export async function getGroups(req, res) {
   const groups = await Group.find({ members: req.user._id }).select(groupSelect).populate("members", "_id fullName username profilePic").lean();
-  const latest = await Message.aggregate([{ $match: { groupId: { $in: groups.map((group) => group._id) } } }, { $sort: { createdAt: -1 } }, { $group: { _id: "$groupId", lastMessage: { $first: "$$ROOT" } } }]);
+  const latest = await Message.aggregate([
+    { $match: { groupId: { $in: groups.map((group) => group._id) }, deletedFor: { $ne: req.user._id } } },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: "$groupId", lastMessage: { $first: "$$ROOT" } } }
+  ]);
   const latestByGroup = new Map(latest.map((item) => [String(item._id), item.lastMessage]));
   res.json(groups.map((group) => ({ ...group, lastMessage: latestByGroup.get(String(group._id)) || null, unreadCount: 0 })));
 }
@@ -145,7 +149,7 @@ export async function searchGroupMessages(req, res) {
   if (!isMember(group, req.user._id)) return res.status(403).json({ message: "You are not a group member" });
   if (!query) return res.json([]);
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const messages = await Message.find({ groupId: cleanId, text: { $regex: escaped, $options: "i" }, deletedAt: null }).select("_id text senderId createdAt").sort({ createdAt: -1 }).limit(50).lean();
+  const messages = await Message.find({ groupId: cleanId, text: { $regex: escaped, $options: "i" }, deletedAt: null, deletedFor: { $ne: req.user._id } }).select("_id text senderId createdAt").sort({ createdAt: -1 }).limit(50).lean();
   res.json(messages.map((message) => ({ messageId: String(message._id), text: message.text, senderId: String(message.senderId), createdAt: message.createdAt })));
 }
 
@@ -248,12 +252,13 @@ export async function updateGroupMembers(req, res) {
 export async function clearGroupMessages(req, res) {
   const { groupId } = req.params;
   if (!validId(groupId)) return res.status(400).json({ message: "Invalid group ID" });
-  const group = await Group.findById(cleanGroupId(groupId));
+  const cleanId = cleanGroupId(groupId);
+  const group = await Group.findById(cleanId);
   if (!group || !isMember(group, req.user._id)) return res.status(404).json({ message: "Group not found or membership invalid" });
 
-  await Message.updateMany({ groupId }, { $addToSet: { deletedFor: req.user._id } });
+  await Message.updateMany({ groupId: cleanId }, { $addToSet: { deletedFor: req.user._id } });
 
-  res.status(200).json({ success: true, message: "Group chat cleared" });
+  res.status(200).json({ success: true, message: "Group chat history cleared successfully" });
 }
 
 export async function updateGroupMemberRole(req, res) {

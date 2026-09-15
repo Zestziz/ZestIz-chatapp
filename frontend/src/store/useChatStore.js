@@ -504,8 +504,8 @@ export const useChatStore = create(
 
       deleteConversation: async (targetUserId) => {
         if (!targetUserId) return false;
+        const rawId = String(targetUserId).replace(/^group:/, "");
         const isGroup = String(targetUserId).startsWith("group:");
-        const id = isGroup ? String(targetUserId).slice(6) : String(targetUserId);
 
         const {
           conversations,
@@ -519,18 +519,27 @@ export const useChatStore = create(
         } = get();
 
         // 1. Optimistic updates
-        const nextConversations = conversations.filter(
-          (c) => String(c._id) !== id && String(c.id) !== id
-        );
-        const nextGroups = isGroup ? groups.filter(g => String(g._id) !== id) : groups;
+        const nextConversations = conversations.filter((c) => {
+          const cId = String(c._id || c.id || c.group?._id || "").replace(/^group:/, "");
+          return cId !== rawId;
+        });
 
-        const isCurrentChatActive = String(activeConversationId) === String(targetUserId);
+        const nextGroups = groups.map((g) =>
+          String(g._id).replace(/^group:/, "") === rawId
+            ? { ...g, lastMessage: null, unreadCount: 0 }
+            : g
+        );
+
+        const isCurrentChatActive =
+          String(activeConversationId || "").replace(/^group:/, "") === rawId;
 
         const updatedMessagesByChatId = { ...messagesByChatId };
-        delete updatedMessagesByChatId[targetUserId];
+        delete updatedMessagesByChatId[`group:${rawId}`];
+        delete updatedMessagesByChatId[rawId];
 
         const updatedLastFetchedChats = { ...lastFetchedChats };
-        delete updatedLastFetchedChats[targetUserId];
+        delete updatedLastFetchedChats[`group:${rawId}`];
+        delete updatedLastFetchedChats[rawId];
 
         set({
           conversations: nextConversations,
@@ -551,7 +560,7 @@ export const useChatStore = create(
         });
 
         try {
-          await axiosInstance.delete(isGroup ? `/groups/${id}/messages/clear` : `/messages/conversations/${targetUserId}`);
+          await axiosInstance.delete(isGroup ? `/groups/${rawId}/messages/clear` : `/messages/conversations/${rawId}`);
           toast.success("Conversation deleted successfully");
           return true;
         } catch (error) {

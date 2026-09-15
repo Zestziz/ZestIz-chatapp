@@ -7,7 +7,8 @@ export function DeleteConversationModal({
   isOpen,
   onClose,
   onConfirm,
-  userName = "this user",
+  userName = "this chat",
+  isGroup = false,
   isLoading = false,
 }) {
   useEffect(() => {
@@ -60,14 +61,23 @@ export function DeleteConversationModal({
             id="delete-conversation-title"
             className="text-lg font-bold text-white leading-6"
           >
-            Delete Conversation
+            {isGroup ? "Clear Group Chat" : "Delete Conversation"}
           </h3>
 
           <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
-            Are you sure you want to delete your conversation with{" "}
-            <span className="font-semibold text-zinc-200">{userName}</span>? This
-            will clear your chat history with this user. This action cannot be
-            undone.
+            {isGroup ? (
+              <>
+                Are you sure you want to clear the message history for{" "}
+                <span className="font-semibold text-zinc-200">{userName}</span>?
+                This will clear messages on your device without removing you from the group.
+              </>
+            ) : (
+              <>
+                Are you sure you want to delete your conversation with{" "}
+                <span className="font-semibold text-zinc-200">{userName}</span>?
+                This will clear your chat history with this user. This action cannot be undone.
+              </>
+            )}
           </p>
         </div>
 
@@ -96,12 +106,12 @@ export function DeleteConversationModal({
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="size-4 animate-spin" />
-                Deleting...
+                {isGroup ? "Clearing..." : "Deleting..."}
               </span>
             ) : (
               <span className="flex items-center gap-2">
                 <Trash2 className="size-4" />
-                Delete Conversation
+                {isGroup ? "Clear Chat History" : "Delete Conversation"}
               </span>
             )}
           </Button>
