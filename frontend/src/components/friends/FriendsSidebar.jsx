@@ -26,7 +26,7 @@ export default function FriendsSidebar() {
   };
 
   return (
-    <div className="px-4 pb-4">
+    <div className="px-4 pb-4 pt-4">
       <h2 className="text-xs font-semibold mb-3 text-foreground uppercase tracking-wider">My Friends</h2>
 
       {friends.length === 0 && (
