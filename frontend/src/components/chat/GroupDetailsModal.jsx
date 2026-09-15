@@ -23,8 +23,10 @@ import { useChatStore } from "../../store/useChatStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useFriendStore } from "../../store/useFriendStore";
 import toast from "react-hot-toast";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 export function GroupDetailsModal({ group, onClose }) {
+  useBackHandler(true, onClose, "group-details");
   const authUser = useAuthStore((state) => state.authUser);
   const onlineUsers = useAuthStore((state) => state.onlineUsers);
   const updateGroup = useChatStore((state) => state.updateGroup);
