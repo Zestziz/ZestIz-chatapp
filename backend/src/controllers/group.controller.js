@@ -6,7 +6,8 @@ import { getReceiverSocketId, io } from "../lib/socket.js";
 import { hasImageKitConfig, uploadChatMedia } from "../lib/imagekit.js";
 
 const groupSelect = "_id name profilePic ownerId admins members createdAt updatedAt";
-function validId(id) { return mongoose.Types.ObjectId.isValid(id); }
+function cleanGroupId(id) { return String(id || "").replace(/^group:/, ""); }
+function validId(id) { return mongoose.Types.ObjectId.isValid(cleanGroupId(id)); }
 function isMember(group, userId) { return group.members.some((id) => (id._id ?? id).toString() === userId.toString()); }
 function isAdmin(group, userId) { return group.ownerId.toString() === userId.toString() || group.admins.some((id) => id.toString() === userId.toString()); }
 function isOwner(group, userId) { return group.ownerId.toString() === userId.toString(); }
@@ -59,20 +60,23 @@ export async function createGroup(req, res) {
 export async function getGroupMessages(req, res) {
   const { groupId } = req.params;
   if (!validId(groupId)) return res.status(400).json({ message: "Invalid group ID" });
-  const group = await Group.findById(groupId);
+  const cleanId = cleanGroupId(groupId);
+  const group = await Group.findById(cleanId);
   if (!group) return res.status(404).json({ message: "Group not found" });
   if (!isMember(group, req.user._id)) return res.status(403).json({ message: "You are not a group member" });
-  res.json(await Message.find({ groupId }).populate({ path: "replyTo", select: "_id text image video audio poll senderId createdAt deletedAt" }).sort({ createdAt: 1 }));
+  res.json(await Message.find({ groupId: cleanId, deletedFor: { $ne: req.user._id } }).populate({ path: "replyTo", select: "_id text image video audio poll senderId createdAt deletedAt" }).populate("reactions.userId", "_id fullName username profilePic").sort({ createdAt: 1 }));
 }
 
 export async function sendGroupMessage(req, res) {
   const { groupId } = req.params;
-  const group = validId(groupId) && await Group.findById(groupId).populate("members", "_id username fullName");
+  if (!validId(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+  const cleanId = cleanGroupId(groupId);
+  const group = await Group.findById(cleanId).populate("members", "_id username fullName");
   if (!group) return res.status(404).json({ message: "Group not found" });
   if (!isMember(group, req.user._id)) return res.status(403).json({ message: "You are not a group member" });
   const { text, replyTo } = req.body;
   let reply = null;
-  if (replyTo) { reply = await Message.findOne({ _id: replyTo, groupId }).select("_id groupId"); if (!reply) return res.status(400).json({ message: "Original message is outside this group" }); }
+  if (replyTo) { reply = await Message.findOne({ _id: replyTo, groupId: cleanId }).select("_id groupId"); if (!reply) return res.status(400).json({ message: "Original message is outside this group" }); }
 
   const mentions = [];
   if (text) {
@@ -105,7 +109,7 @@ export async function sendGroupMessage(req, res) {
     else if (req.file.mimetype.startsWith("audio/")) audio = { url, duration: Number(req.body.audioDuration) };
     else image = url;
   }
-  const message = await Message.create({ senderId: req.user._id, groupId, replyTo: reply?._id || null, text, image, video, audio, mentions: uniqueMentions, deliveredAt: new Date() });
+  const message = await Message.create({ senderId: req.user._id, groupId: cleanId, replyTo: reply?._id || null, text, image, video, audio, mentions: uniqueMentions, deliveredAt: new Date() });
   await message.populate({ path: "replyTo", select: "_id text image video audio poll senderId createdAt deletedAt" });
   try {
     for (const memberId of group.members) {
@@ -118,7 +122,7 @@ export async function sendGroupMessage(req, res) {
         for (const socketId of sockets) {
           io.to(socketId).emit("userMentioned", {
             messageId: String(message._id),
-            groupId: String(groupId),
+            groupId: String(cleanId),
             senderId: String(req.user._id),
             text: message.text,
             createdAt: message.createdAt
@@ -134,17 +138,20 @@ export async function sendGroupMessage(req, res) {
 
 export async function searchGroupMessages(req, res) {
   const { groupId } = req.params; const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
-  const group = validId(groupId) && await Group.findById(groupId);
+  if (!validId(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+  const cleanId = cleanGroupId(groupId);
+  const group = await Group.findById(cleanId);
   if (!group) return res.status(404).json({ message: "Group not found" });
   if (!isMember(group, req.user._id)) return res.status(403).json({ message: "You are not a group member" });
   if (!query) return res.json([]);
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const messages = await Message.find({ groupId, text: { $regex: escaped, $options: "i" }, deletedAt: null }).select("_id text senderId createdAt").sort({ createdAt: -1 }).limit(50).lean();
+  const messages = await Message.find({ groupId: cleanId, text: { $regex: escaped, $options: "i" }, deletedAt: null }).select("_id text senderId createdAt").sort({ createdAt: -1 }).limit(50).lean();
   res.json(messages.map((message) => ({ messageId: String(message._id), text: message.text, senderId: String(message.senderId), createdAt: message.createdAt })));
 }
 
 export async function updateGroup(req, res) {
-  const group = await Group.findById(req.params.groupId);
+  if (!validId(req.params.groupId)) return res.status(400).json({ message: "Invalid group ID" });
+  const group = await Group.findById(cleanGroupId(req.params.groupId));
   if (!group) return res.status(404).json({ message: "Group not found" });
   if (!isAdmin(group, req.user._id)) return res.status(403).json({ message: "Only group admins can update the group" });
   const name = typeof req.body.name === "string" ? req.body.name.trim() : group.name;
@@ -156,7 +163,8 @@ export async function updateGroup(req, res) {
 }
 
 export async function updateGroupMembers(req, res) {
-  const group = await Group.findById(req.params.groupId);
+  if (!validId(req.params.groupId)) return res.status(400).json({ message: "Invalid group ID" });
+  const group = await Group.findById(cleanGroupId(req.params.groupId));
   if (!group) return res.status(404).json({ message: "Group not found" });
   const { action, userId } = req.body;
 
@@ -237,12 +245,21 @@ export async function updateGroupMembers(req, res) {
   return res.status(400).json({ message: "Invalid member action" });
 }
 
-// Handles promote and demote. Owner and admins can both promote; only owner can demote (per spec,
-// admins can demote fellow admins too, but NOT the owner.)
+export async function clearGroupMessages(req, res) {
+  const { groupId } = req.params;
+  if (!validId(groupId)) return res.status(400).json({ message: "Invalid group ID" });
+  const group = await Group.findById(cleanGroupId(groupId));
+  if (!group || !isMember(group, req.user._id)) return res.status(404).json({ message: "Group not found or membership invalid" });
+
+  await Message.updateMany({ groupId }, { $addToSet: { deletedFor: req.user._id } });
+
+  res.status(200).json({ success: true, message: "Group chat cleared" });
+}
+
 export async function updateGroupMemberRole(req, res) {
   const { groupId, userId } = req.params;
   if (!validId(groupId) || !validId(userId)) return res.status(400).json({ message: "Invalid group or user ID" });
-  const group = await Group.findById(groupId);
+  const group = await Group.findById(cleanGroupId(groupId));
   if (!group) return res.status(404).json({ message: "Group not found" });
 
   // Only admins/owner may change roles

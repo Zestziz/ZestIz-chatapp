@@ -1,7 +1,7 @@
 import express from "express";
 import { protectRoute } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
-import { createGroup, getGroups, getGroupMessages, sendGroupMessage, searchGroupMessages, updateGroup, updateGroupMembers, updateGroupMemberRole } from "../controllers/group.controller.js";
+import { createGroup, getGroups, getGroupMessages, sendGroupMessage, searchGroupMessages, updateGroup, updateGroupMembers, updateGroupMemberRole, clearGroupMessages } from "../controllers/group.controller.js";
 import { closePoll, createGroupPoll, votePoll } from "../controllers/poll.controller.js";
 import { getPinnedMessages, updatePin } from "../controllers/pin.controller.js";
 
@@ -10,6 +10,7 @@ router.use(protectRoute);
 router.get("/", getGroups);
 router.post("/", upload.single("media"), createGroup);
 router.get("/:groupId/messages", getGroupMessages);
+router.delete("/:groupId/messages/clear", clearGroupMessages);
 router.get("/:groupId/search", searchGroupMessages);
 router.post("/:groupId/messages", upload.single("media"), sendGroupMessage);
 router.post("/:groupId/poll", createGroupPoll);

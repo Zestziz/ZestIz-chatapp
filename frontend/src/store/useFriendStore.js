@@ -92,14 +92,22 @@ export const useFriendStore = create((set, get) => ({
   },
 
   sendFriendRequest: async (userId) => {
+    // Optimistic update
+    set((state) => ({
+      outgoingRequests: [...state.outgoingRequests, { receiver: { _id: userId } }],
+    }));
     try {
       const res = await axiosInstance.post(`/friends/request/${userId}`);
       toast.success(res.data.message);
       if (res.data.status === "accepted") {
-        get().getFriends();
+        get().getFriends(true);
       }
-      get().getPendingRequests();
+      get().getPendingRequests(true);
     } catch (error) {
+      // Revert optimistic update on failure
+      set((state) => ({
+        outgoingRequests: state.outgoingRequests.filter((r) => (r.receiver?._id || r.receiver?.id) !== userId),
+      }));
       toast.error(error.response?.data?.message || "Failed to send friend request");
     }
   },
@@ -108,8 +116,8 @@ export const useFriendStore = create((set, get) => ({
     try {
       await axiosInstance.post(`/friends/accept/${senderId}`);
       toast.success("Friend request accepted");
-      get().getPendingRequests();
-      get().getFriends();
+      get().getPendingRequests(true);
+      get().getFriends(true);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to accept request");
     }
@@ -119,7 +127,7 @@ export const useFriendStore = create((set, get) => ({
     try {
       await axiosInstance.post(`/friends/reject/${senderId}`);
       toast.success("Friend request rejected");
-      get().getPendingRequests();
+      get().getPendingRequests(true);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to reject request");
     }
@@ -129,7 +137,7 @@ export const useFriendStore = create((set, get) => ({
     try {
       await axiosInstance.post(`/friends/cancel/${targetId}`);
       toast.success("Friend request cancelled");
-      get().getPendingRequests();
+      get().getPendingRequests(true);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to cancel request");
     }

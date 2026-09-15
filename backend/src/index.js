@@ -3,6 +3,14 @@ import cors from "cors";
 
 import "dotenv/config";
 
+process.on("uncaughtException", (err) => {
+  console.error("CRITICAL UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("UNHANDLED REJECTION at:", promise, "reason:", reason);
+});
+
 import fs from "fs";
 import path from "path";
 

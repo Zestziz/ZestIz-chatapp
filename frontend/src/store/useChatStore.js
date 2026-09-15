@@ -504,11 +504,15 @@ export const useChatStore = create(
 
       deleteConversation: async (targetUserId) => {
         if (!targetUserId) return false;
-        const targetId = String(targetUserId);
+        const isGroup = String(targetUserId).startsWith("group:");
+        const id = isGroup ? String(targetUserId).slice(6) : String(targetUserId);
+
         const {
           conversations,
+          groups,
           messages,
           selectedUser,
+          selectedGroup,
           activeConversationId,
           messagesByChatId,
           lastFetchedChats,
@@ -516,27 +520,27 @@ export const useChatStore = create(
 
         // 1. Optimistic updates
         const nextConversations = conversations.filter(
-          (c) => String(c._id) !== targetId && String(c.id) !== targetId
+          (c) => String(c._id) !== id && String(c.id) !== id
         );
+        const nextGroups = isGroup ? groups.filter(g => String(g._id) !== id) : groups;
 
-        const isCurrentChatActive =
-          String(selectedUser?._id) === targetId ||
-          String(selectedUser?.id) === targetId ||
-          String(activeConversationId) === targetId;
+        const isCurrentChatActive = String(activeConversationId) === String(targetUserId);
 
         const updatedMessagesByChatId = { ...messagesByChatId };
-        delete updatedMessagesByChatId[targetId];
+        delete updatedMessagesByChatId[targetUserId];
 
         const updatedLastFetchedChats = { ...lastFetchedChats };
-        delete updatedLastFetchedChats[targetId];
+        delete updatedLastFetchedChats[targetUserId];
 
         set({
           conversations: nextConversations,
+          groups: nextGroups,
           messagesByChatId: updatedMessagesByChatId,
           lastFetchedChats: updatedLastFetchedChats,
           ...(isCurrentChatActive
             ? {
                 selectedUser: null,
+                selectedGroup: null,
                 activeConversationId: null,
                 messages: [],
                 pinnedMessages: [],
@@ -547,18 +551,20 @@ export const useChatStore = create(
         });
 
         try {
-          await axiosInstance.delete(`/messages/conversations/${targetUserId}`);
+          await axiosInstance.delete(isGroup ? `/groups/${id}/messages/clear` : `/messages/conversations/${targetUserId}`);
           toast.success("Conversation deleted successfully");
           return true;
         } catch (error) {
           // Rollback on error
           set({
             conversations,
+            groups,
             messagesByChatId,
             lastFetchedChats,
             ...(isCurrentChatActive
               ? {
                   selectedUser,
+                  selectedGroup,
                   activeConversationId,
                   messages,
                 }
@@ -661,13 +667,30 @@ export const useChatStore = create(
             if (messageData instanceof FormData) messageData.append("replyTo", replyToId);
             else messageData.replyTo = replyToId;
           }
-          const target = selectedGroup ? `/groups/${selectedGroup._id}/messages` : `/messages/send/${selectedUser._id}`;
+          const targetUserOrGroupId = selectedGroup ? (selectedGroup._id || selectedGroup.id) : (selectedUser._id || selectedUser.id);
+          const target = selectedGroup ? `/groups/${targetUserOrGroupId}/messages` : `/messages/send/${targetUserOrGroupId}`;
           const res = await axiosInstance.post(target, messageData);
 
           // Reconcile with server data
-          set((state) => ({
-            messages: state.messages.map(msg => msg._id === tempId ? res.data : msg)
-          }));
+          set((state) => {
+            const activeChatId = selectedGroup ? `group:${selectedGroup._id}` : String(selectedUser._id);
+            return {
+              messages: state.messages.map(msg => msg._id === tempId ? res.data : msg),
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [activeChatId]: (state.messagesByChatId[activeChatId] || []).map(msg =>
+                  msg._id === tempId ? res.data : msg
+                )
+              },
+              ...(selectedGroup ? {
+                groups: state.groups.map(group =>
+                  String(group._id) === String(selectedGroup._id)
+                    ? { ...group, lastMessage: res.data }
+                    : group
+                )
+              } : {})
+            };
+          });
 
           selectedGroup ? get().getGroups() : get().getConversations();
           return true;
@@ -809,14 +832,18 @@ export const useChatStore = create(
 
         socket.on("newGroupMessage", (newMessage) => {
           const groupKey = `group:${newMessage.groupId}`;
-          if (get().activeConversationId === groupKey) {
-            set({ messages: [...get().messages, newMessage] });
-            return;
-          }
+          const isActive = get().activeConversationId === groupKey;
           set((state) => ({
-            groups: state.groups.map((group) => String(group._id) === String(newMessage.groupId)
-              ? { ...group, unreadCount: (group.unreadCount || 0) + 1, lastMessage: newMessage }
-              : group),
+            messages: isActive ? [...state.messages, newMessage] : state.messages,
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [groupKey]: [...(state.messagesByChatId[groupKey] || []), newMessage]
+            },
+            groups: state.groups.map(group =>
+              String(group._id) === String(newMessage.groupId)
+                ? { ...group, unreadCount: isActive ? 0 : (group.unreadCount || 0) + 1, lastMessage: newMessage }
+                : group
+            ),
           }));
           const group = get().groups.find((item) => String(item._id) === String(newMessage.groupId));
           const sender = [...get().users, ...get().conversations].find((user) => String(user._id) === String(newMessage.senderId));
@@ -968,7 +995,11 @@ export const useChatStore = create(
         set((state) => ({
           activeConversationId,
           selectedGroup: groupId ? state.groups.find((group) => String(group._id) === groupId) || null : null,
-          selectedUser: groupId ? null : state.users.find((user) => user._id === activeConversationId) || state.conversations.find((user) => user._id === activeConversationId) || null,
+          selectedUser: groupId ? null :
+            state.users.find((user) => user._id === activeConversationId) ||
+            state.conversations.find((user) => user._id === activeConversationId) ||
+            useFriendStore.getState().friends.find((user) => user._id === activeConversationId) ||
+            null,
           messages: activeConversationId ? state.messages : [],
           typingUsers: {},
           replyingTo: null,

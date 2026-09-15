@@ -116,6 +116,7 @@ export async function getMessages(req, res) {
         path: "replyTo",
         select: "_id text image video audio poll senderId createdAt deletedAt",
       })
+      .populate("reactions.userId", "_id fullName username profilePic")
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -413,6 +414,7 @@ export async function reactToMessage(req, res) {
 
     message.reactions = reactions;
     await message.save();
+    await message.populate("reactions.userId", "_id fullName username profilePic");
 
     const reactionUpdate = {
         messageId: String(message._id),

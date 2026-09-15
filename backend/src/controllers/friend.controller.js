@@ -7,6 +7,10 @@ export async function sendFriendRequest(req, res) {
     const senderId = req.user._id;
     const { id: targetId } = req.params;
 
+    if (!targetId || targetId === "undefined") {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
     if (senderId.toString() === targetId) {
       return res.status(400).json({ message: "You cannot send a friend request to yourself" });
     }

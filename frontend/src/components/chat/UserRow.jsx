@@ -55,25 +55,25 @@ export const UserRow = memo(function UserRow({ user, selected, onSelect, onProfi
             variant="flat"
             color="danger"
             className="gap-1"
-            onPress={() => removeFriend(user.id)}
+            onPress={() => removeFriend(user.id || user._id)}
           >
             <UserMinus className="size-4" /> Unfriend
           </Button>
         ) : incomingRequest ? (
           <>
-            <Button isIconOnly size="sm" color="success" variant="flat" onPress={() => acceptRequest(user.id)}>
+            <Button isIconOnly size="sm" color="success" variant="flat" onPress={() => acceptRequest(user.id || user._id)}>
               <Check className="size-4" />
             </Button>
-            <Button isIconOnly size="sm" color="danger" variant="flat" onPress={() => rejectRequest(user.id)}>
+            <Button isIconOnly size="sm" color="danger" variant="flat" onPress={() => rejectRequest(user.id || user._id)}>
               <X className="size-4" />
             </Button>
           </>
         ) : isPendingOutgoing ? (
-          <Button size="sm" variant="flat" color="default" className="gap-1" onPress={() => cancelRequest(user.id)}>
+          <Button size="sm" variant="flat" color="default" className="gap-1" onPress={() => cancelRequest(user.id || user._id)}>
             <Clock className="size-4" /> Pending
           </Button>
         ) : (
-          <Button size="sm" variant="flat" color="primary" className="gap-1" onPress={() => sendFriendRequest(user.id)}>
+          <Button size="sm" variant="flat" color="primary" className="gap-1" onPress={() => sendFriendRequest(user.id || user._id)}>
             <UserPlus className="size-4" /> Add
           </Button>
         )}

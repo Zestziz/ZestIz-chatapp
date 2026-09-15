@@ -13,7 +13,8 @@ async function accessMessage(messageId, userId, expectedGroupId) {
   if (!mongoose.Types.ObjectId.isValid(messageId)) return { error: [400, "Invalid message ID"] };
   const message = await Message.findById(messageId);
   if (!message) return { error: [404, "Message not found"] };
-  if (expectedGroupId && String(message.groupId) !== String(expectedGroupId)) return { error: [403, "Message is outside this group"] };
+  const cleanExpectedGroupId = expectedGroupId ? String(expectedGroupId).replace(/^group:/, "") : null;
+  if (cleanExpectedGroupId && String(message.groupId) !== String(cleanExpectedGroupId)) return { error: [403, "Message is outside this group"] };
   if (message.groupId) {
     const group = await Group.findById(message.groupId).select("members admins ownerId");
     if (!group || !isMember(group, userId)) return { error: [403, "You are not a group member"] };
@@ -62,7 +63,8 @@ export async function updatePin(req, res) {
 
 export async function getPinnedMessages(req, res) {
   const isGroup = Boolean(req.params.groupId);
-  const conversationId = req.params.groupId || req.params.userId;
+  const rawId = req.params.groupId || req.params.userId;
+  const conversationId = String(rawId || "").replace(/^group:/, "");
   if (!mongoose.Types.ObjectId.isValid(conversationId)) return res.status(400).json({ message: "Invalid conversation ID" });
   let query;
   if (isGroup) {

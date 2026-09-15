@@ -9,6 +9,7 @@ import { MessageVideo } from "./MessageVideo";
 import { MessageAudio } from "./MessageAudio";
 import { PollCard } from "./PollCard";
 import { ImageViewerModal } from "./ImageViewerModal";
+import { ReactionDetailsModal } from "./ReactionDetailsModal";
 import { getInitials } from "../../hooks/useSelectedConversation";
 import toast from "react-hot-toast";
 
@@ -78,6 +79,8 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  const [isReactionDetailsOpen, setIsReactionDetailsOpen] = useState(false);
+  const [reactionModalEmoji, setReactionModalEmoji] = useState("all");
   const pickerRef = useRef(null);
   const authUser = useAuthStore((state) => state.authUser);
   const reactToMessage = useChatStore((state) => state.reactToMessage);
@@ -402,7 +405,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
               const isCurrentUserReaction = reactions.some(
                 (reaction) =>
                   reaction.emoji === emoji &&
-                  String(reaction.userId) === String(authUser?._id),
+                  String(reaction.userId?._id || reaction.userId?.id || reaction.userId) === String(authUser?._id),
               );
               return (
                 <button
@@ -413,8 +416,13 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                       ? "border-accent/60 bg-accent-soft text-foreground"
                       : "border-border bg-surface text-foreground"
                   }`}
-                  aria-label={`${emoji} reaction, ${count}`}
-                  onClick={() => handleReaction(emoji)}
+                  aria-label={`${emoji} reaction, ${count}. Click to view who reacted.`}
+                  title="View who reacted"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setReactionModalEmoji(emoji);
+                    setIsReactionDetailsOpen(true);
+                  }}
                 >
                   <span>{emoji}</span>
                   <span className="text-[11px] font-medium">{count}</span>
@@ -422,6 +430,15 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
               );
             })}
           </div>
+        ) : null}
+        {isReactionDetailsOpen ? (
+          <ReactionDetailsModal
+            isOpen={isReactionDetailsOpen}
+            onClose={() => setIsReactionDetailsOpen(false)}
+            reactions={reactions}
+            initialEmoji={reactionModalEmoji}
+            onReact={handleReaction}
+          />
         ) : null}
         <p
           className={`mt-1 flex items-center justify-end gap-1 text-[11px] tabular-nums ${

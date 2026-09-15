@@ -89,7 +89,11 @@ export async function createPrivatePoll(req, res) {
 }
 
 export async function createGroupPoll(req, res) {
-  const group = await Group.findById(req.params.groupId).select("members");
+  const cleanGroupId = String(req.params.groupId || "").replace(/^group:/, "");
+  if (!mongoose.Types.ObjectId.isValid(cleanGroupId)) {
+    return res.status(400).json({ message: "Invalid group ID" });
+  }
+  const group = await Group.findById(cleanGroupId).select("members");
   if (!group) return res.status(404).json({ message: "Group not found" });
   if (!isMember(group, req.user._id)) return res.status(403).json({ message: "You are not a group member" });
   return sendPoll(req, res, { groupId: group._id, group });
