@@ -1,99 +1,57 @@
 # 💬 ZestIz — Real-Time Chat & Social Messaging Platform
 
-> A modern, full-stack real-time chat application engineered with **React 19**, **Node.js**, **Express**, **MongoDB**, **Socket.IO**, **Clerk Auth**, **Tailwind CSS**, **HeroUI**, and **Zustand**.
+> A modern, full-stack real-time chat application engineered with **React 19**, **Node.js**, **Express**, **MongoDB**, **Socket.IO**, **Clerk Auth**, **Tailwind CSS 4**, **HeroUI**, and **Zustand**.
 
 🌐 **Live Demo:** [https://zestiz-chatapp.onrender.com/](https://zestiz-chatapp.onrender.com/)
 
 ## 🚀 Latest Features & Updates (September 2026)
 
-### Recent Improvements
-- **Enhanced Message Editing:** Now supports editing messages with media attachments (text portion remains editable)
-- **Fixed Mobile UI Stacking:** Resolved z-index issues where chat elements overlapped context menus and action overlays
-- **Improved Touch Interactions:** Better long-press gesture handling with proper event isolation using React 19 portals
-
-### Core Features
-- **Message Editing & Deletion:** Edit sent messages (including those with attachments) or delete them with proper audit trails
-- **Emoji Reactions:** Add reactions to any message for quick feedback
-- **Voice Message Support:** Send and receive high-quality voice messages with waveform playback
-- **User Mentions:** Tag users with @mentions for targeted notifications
-- **Read Receipts & Delivery Status:** Track message delivery and read status with timestamps
-- **Unread Message Counts:** Automatic tracking across conversations and groups
-- **Advanced Message Search:** Full-text search with regex support in conversations
-- **Browser Notifications:** Smart background notifications for new messages
-- **Typing Indicators:** Real-time typing feedback with optional sound effects
-- **Message Replies:** Threaded conversations with message quoting
-- **Enhanced Group Management:** Improved admin controls, member roles, and group updates
+- **Rebuilt Group Chat Architecture:** Full-screen mobile bottom sheets (`100dvh`), multi-admin permission hierarchy (peer admins can kick/demote each other, owner is completely untouchable), seamless ownership transfer flows, and auto-cleanup on exit.
+- **Full-Screen Media Lightbox:** Interactive modal with pan-and-drag, mouse-wheel zoom, mobile pinch-to-zoom, and floating glassmorphic toolbar controls for seamless media viewing.
+- **Touch Gestures & Mobile Experience:** Native long-press (hold 750–1000ms) with haptic feedback to delete/clear chats; continuous keyboard focus retention during messaging.
+- **Reaction Inspector:** Interactive viewer modal displaying user profiles and avatars for each emoji reaction in real time.
+- **Conversation Management ("Delete for Me"):** Clear chat history for direct and group conversations with `$addToSet: deletedFor` backend persistence ensuring state isolation between users.
+- **High-Performance Caching & SWR:** Zustand store-level dictionary caching (`messagesByChatId`), ImageKit CDN dynamic transformations, pure WebSocket transport (`transports: ['websocket']`), and zero-latency optimistic UI messaging.
 
 ---
 
 ## 📖 Overview
 
-**ZestIz** is a high-performance, real-time messaging and social connection platform. Designed with a dark-first aesthetic and fluid micro-animations, it delivers instant one-to-one and group messaging, granular messaging privacy controls, an interactive friend request system, mutual friend tracking, and rich collaborative features including polls, pinned messages, media sharing, and advanced messaging capabilities.
+**ZestIz** is a high-performance, real-time messaging and social connection platform. Designed with a dark-first aesthetic, fluid micro-animations, and uncompromised mobile ergonomics, it delivers instant one-to-one and group messaging, granular messaging privacy controls, an interactive friend request system, and rich collaborative features including polls, pinned messages, and seamless media sharing.
 
 ---
 
 ## ✨ Key Features
 
-### 💬 Real-Time Messaging
-- **Instant Delivery:** Sub-millisecond message transit powered by **Socket.IO** with delivery and read status indicators.
+### 💬 Real-Time Messaging & Performance
+- **Zero-Latency Delivery:** Sub-millisecond message transit powered by **Socket.IO** pure WebSocket transport with delivery/read receipts.
 - **Live Online Presence:** Real-time online/offline status indicators with active typing display.
-- **Media & Voice Messages:** Seamless image, video, and voice message sharing backed by **ImageKit** with automatic transcoding.
-- **Message Editing & Deletion:** Edit sent messages or delete them with timestamps showing edit history and deletion markers.
-- **Message Reactions:** Add emoji reactions to any message for quick feedback and engagement.
-- **Message Replies & Threading:** Quote and respond to specific messages within conversations to maintain context and clarity.
-- **User Mentions:** Tag users with @mentions to highlight specific recipients and send targeted notifications.
-- **Typing Indicators:** See when others are typing with real-time feedback and optional keyboard sound effects.
-- **Read Receipts:** Track message delivery, read status, and delivery timestamps with granular precision.
-- **Unread Message Counts:** Automatic tracking and display of unread message indicators across conversations.
-- **Browser Notifications:** Smart background notifications for new messages when the app is minimized or in the background.
-- **Group Chats:** Create and manage group conversations with multiple members, admin controls, and member management.
+- **Message Editing & Deletion:** Edit sent messages or delete them securely with proper audit trails and timestamps.
+- **Browser Notifications:** Smart background notifications for new messages when the app is minimized.
 
-### 👥 Friend Request & Connection System
-- **Send & Cancel Requests:** Send friend invitations directly from user cards or search results, with the ability to cancel sent requests.
-- **Accept / Reject:** Fast management of incoming friend requests with real-time notifications.
-- **Friends List:** Dedicated tab showing active friends with live status indicators and quick-chat actions.
-- **Mutual Friends:** Dynamic computation and display of mutual friends count between users.
-- **Unfriend Support:** One-click removal of friends with immediate real-time state synchronization.
-- **Real-Time Notifications:** Instant updates for friend requests, acceptances, cancellations, and removals across all connected devices.
+### 👥 Group Chat & Sovereign Management
+- **Hierarchical Roles:** Complete multi-admin structure. The sovereign owner holds ultimate control, while promoted admins can kick, demote, or manage other members. 
+- **Ownership Transfer:** Owners can seamlessly transfer ultimate ownership to another member before leaving a group.
+- **Real-Time Sync:** Debounced member search and instant payload broadcasting for name, avatar, and role synchronization across all connected clients.
 
-### 🚫 Block & Unblock System
-- **Block Users:** Prevent unwanted interactions by blocking users from chat header menu or user list.
-- **Unblock Users:** Easily unblock previously blocked users from the dedicated Blocked Users panel.
-- **Privacy Enforcement:** Blocked users are automatically removed from friends list, cannot send messages, and are hidden from search results and conversations.
-- **Real-Time Sync:** Socket.IO events instantly update both users' states when blocking/unblocking occurs.
-- **Blocked Users Panel:** Dedicated UI panel in Friends tab to view and manage blocked users.
+### 👆 Touch & Mobile Ergonomics
+- **Dynamic Viewports:** Interfaces responsive to mobile constraints utilizing `100dvh` and safe-area padding (`pb-safe`) for edge-to-edge screens.
+- **Native Gestures:** Custom `useLongPress` hooks to activate native-feeling touch-and-hold menus (like long-press to delete a conversation).
+- **Scroll Containment:** Perfected focus rendering where inputs don't blur unexpectedly when scrolling on mobile. 
 
-### 🛡️ Messaging Privacy Controls
-- **Granular Restrictions:** Toggle between **Everyone** and **Friends Only** direct messaging.
-- **Server-Side Enforcement:** Message delivery is strictly validated before saving and routing (returns `403 Forbidden` if sender is unauthorized).
-- **Segmented Control UI:** Modern pill toggle with micro-animations and intuitive status indicators.
+### 🖼️ Interactive Media & Attachments
+- **Full-Screen Lightbox:** High-performance, zoomable, and draggable full-screen image previews with a dynamic glassmorphic overlay.
+- **On-the-Fly Optimization:** Backend seamlessly integrated with ImageKit CDN for automatic thumbnail compression, transcoding, and rapid delivery of images, audio, and video messages.
 
-### 📌 Advanced Message Features
-- **Pinned Messages:** Pin up to 10 important messages per conversation for quick reference. Group admins and message creators control pins in group chats.
-- **Message Search:** Full-text search across group messages with regex support for finding specific content.
-- **Message Replies:** Quote specific messages when responding to maintain conversation context and clarity.
-- **Pinned Messages Panel:** Dedicated UI panel to view and manage all pinned messages with timestamps and author information.
+### 🚫 Privacy, Connections & Blocking
+- **Messaging Privacy:** Toggle between **Everyone** and **Friends Only** (server-enforced with `403` status drops).
+- **Blocking System:** Full bidirectional blocking preventing interactions, hiding search results, and triggering live disconnection events.
+- **Friends Graph:** Sophisticated friend request architecture determining mutual connections out of the box.
 
-### 📊 Interactive Polls
-- **Create Polls:** Compose polls with questions (up to 240 characters) and 2-8 options (up to 120 chars each).
-- **Real-Time Voting:** Cast and change votes instantly with live updates to all participants.
-- **Poll Management:** Close polls to prevent further voting; only poll creators and group admins can close polls.
-- **Validation & Uniqueness:** Automatic validation ensures unique options and proper formatting.
-- **Broadcast Updates:** All poll changes broadcast instantly via Socket.IO to all conversation participants.
-
-### 👥 Group Chat Management
-- **Create Groups:** Form group conversations with connected friends, with optional group profile pictures.
-- **Admin Controls:** Group owners and admins can manage members, update group details, and promote members to admin roles.
-- **Member Management:** Add or remove members with eligibility checks to ensure valid connections.
-- **Group Search:** Search messages within group conversations to find specific content quickly.
-- **Ownership Transfer:** Group owners can transfer ownership to another admin before leaving.
-- **Group Updates:** Real-time synchronization of group changes across all members' sessions.
-
-### 🎨 Modern UI & Customization
-- **Theme Presets:** Select from tailored color themes with ZestIz's purple/blue/cyan visual identity.
-- **Chat Wallpapers:** Personalize chat backdrops with customizable wallpaper patterns.
-- **Responsive Layout:** Optimized for desktop, tablet, and mobile views with collapsible sidebars and touch-friendly controls.
-- **HeroUI & Tailwind CSS:** Accessible, accessible UI components with smooth state transitions.
+### 📌 Interactive Elements
+- **Emoji Reactions & Inspector:** React to anything. Check exactly who reacted with what emoji via the bottom-sheet Reaction Inspector.
+- **Live Polls:** Real-time polling with secure vote state broadcasting and creator-only closing rights.
+- **Pinned Messages:** Up to 10 persistent pinned messages per conversation managed via dedicated fly-out panels.
 
 ---
 
@@ -101,10 +59,10 @@
 
 ### Frontend
 - **Framework:** React 19 (Vite)
-- **State Management:** Zustand (with persistence middleware)
+- **State Management:** Zustand (with persistence middleware & dictionary catching)
 - **UI Components & Styling:** HeroUI, Tailwind CSS 4, Lucide React
 - **Authentication:** Clerk React
-- **Real-Time Client:** Socket.IO Client
+- **Real-Time Client:** Socket.IO Client (Pure WebSocket)
 - **HTTP Client:** Axios
 - **Notifications:** React Hot Toast
 
@@ -116,7 +74,6 @@
 - **WebSockets:** Socket.IO
 - **File & Media Handling:** Multer, ImageKit Node.js SDK
 - **Scheduled Tasks:** Cron
-- **Validation:** Comprehensive server-side validation for all user inputs and operations
 
 ### Deployment & DevOps
 - **Hosting:** Render
@@ -143,7 +100,6 @@ Browser Client (React 19 / Zustand / HeroUI)
    (Users, Friends, Messages, Groups)    (Chat Media Assets)           (User Lifecycle Sync)
 
 Database Schema Highlights:
-• Users: Core profiles, friend lists, blocked users, privacy settings
 • Users: Core profiles, friend lists, blocked users, privacy settings, online status
 • Messages: Chat history, polls, replies, pins, reactions, edits, deletions, read receipts
 • Groups: Group metadata, members, admins, ownership, profile pictures
@@ -162,7 +118,7 @@ ZestIz/
 │   │   │   ├── auth.controller.js        # Auth state verification
 │   │   │   ├── friend.controller.js      # Friend requests, mutual count, privacy, block/unblock
 │   │   │   ├── group.controller.js       # Group creation, management, member roles
-│   │   │   ├── message.controller.js     # Messages & privacy enforcement
+│   │   │   ├── message.controller.js     # Messages, conversation clearing & privacy
 │   │   │   ├── pin.controller.js         # Message pinning functionality
 │   │   │   └── poll.controller.js        # Poll creation, voting, closing
 │   │   ├── lib/
@@ -184,7 +140,7 @@ ZestIz/
 │   │   │   └── message.route.js          # Chat & conversation endpoints
 │   │   ├── webhooks/
 │   │   │   └── clerk.webhook.js          # Clerk webhook sync handler
-│   │   └── index.js                      # Server entry point
+│   │   └── index.js                      # Server entry point (Global crash protection)
 │   └── package.json
 │
 ├── frontend/
@@ -192,46 +148,42 @@ ZestIz/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── auth/                     # Auth cards, headers, hero components
-│   │   │   ├── chat/                     # Chat window, bubbles, input, sidebar, rows, header, media players
-│   │   │   ├── friends/                  # Friends list, requests panel, privacy toggle, blocked panel
+│   │   │   ├── chat/                     # Chat window, bubbles, input, sidebar, rows, header
+│   │   │   │   ├── CreateGroupModal.jsx
+│   │   │   │   ├── GroupDetailsModal.jsx
+│   │   │   │   ├── ImageViewerModal.jsx       # Full-screen touch-enabled media lightbox
+│   │   │   │   ├── DeleteConversationModal.jsx # Conversation clearing interface
+│   │   │   │   ├── ReactionDetailsModal.jsx   # Emoji reaction inspector
+│   │   │   │   ├── PinnedMessagesPanel.jsx
+│   │   │   │   ├── MessageAudio.jsx           # Voice message player with waveform
+│   │   │   │   └── MessageVideo.jsx
+│   │   │   ├── friends/                  # Friends list, requests panel, blocked panel
 │   │   │   ├── profile/                  # User profile modal with editing capabilities
 │   │   │   ├── AppLogo.jsx
 │   │   │   ├── ThemeToggle.jsx
-│   │   │   ├── WallpaperPicker.jsx
-│   │   │   ├── AvatarWithOnlineIndicator.jsx
-│   │   │   ├── ThemePresetPicker.jsx
-│   │   │   ├── PageLoader.jsx
-│   │   │   ├── MessageAudio.jsx          # Voice message player with waveform
-│   │   │   ├── MessageVideo.jsx          # Video message player
-│   │   │   ├── CreateGroupModal.jsx      # Group creation interface
-│   │   │   ├── GroupDetailsModal.jsx     # Group management modal
-│   │   │   ├── PinnedMessagesPanel.jsx   # Pinned messages browser
-│   │   │   ├── NoConversationPlaceholder.jsx
-│   │   │   ├── ConversationRow.jsx
-│   │   │   └── UserRow.jsx
+│   │   │   └── WallpaperPicker.jsx
 │   │   ├── hooks/
 │   │   │   ├── useKeyboardSound.js       # Interactive typing sound effects
 │   │   │   ├── useMediaQuery.js          # Responsive breakpoint detection
+│   │   │   ├── useLongPress.js           # Native touch-and-hold gestures
 │   │   │   └── useScrollToBottom.js      # Auto-scroll for new messages
-│   │   │   ├── context/
-│   │   │   ├── theme.js                  # Theme configuration and presets
+│   │   ├── context/
 │   │   │   ├── ThemeContext.jsx          # Theme switching with persistence
-│   │   │   ├── wallpaper.js              # Wallpaper pattern definitions
 │   │   │   └── WallpaperContext.jsx      # Wallpaper selection context
 │   │   ├── data/
 │   │   │   ├── herouiThemePresets.js     # Custom HeroUI theme configurations
 │   │   │   └── wallpapers.js             # Wallpaper pattern and color data
 │   │   ├── lib/
 │   │   │   ├── axios.js                  # Axios instance with auth headers
-│   │   │   ├── imagekit.js               # ImageKit upload utilities
+│   │   │   ├── imagekit.js               # ImageKit optimization and blob utilities
 │   │   │   └── utils.js                  # Formatting and utility functions
 │   │   ├── pages/
 │   │   │   ├── AuthPage.jsx              # Authentication landing page
 │   │   │   └── ChatPage.jsx              # Main chat interface with routing
 │   │   ├── store/
 │   │   │   ├── useAuthStore.js           # Auth state, online users, socket connections
-│   │   │   ├── useChatStore.js           # Messages, conversations, groups, UI state, media handling
-│   │   │   └── useFriendStore.js         # Friends, requests, blocked users, privacy, real-time sync
+│   │   │   ├── useChatStore.js           # Messages dictionary cache, UI loops
+│   │   │   └── useFriendStore.js         # Friends, requests, blocked users
 │   │   ├── App.jsx                       # Main app component with routing
 │   │   └── main.jsx                      # Entry point with Clerk auth provider
 │   └── package.json
@@ -254,6 +206,7 @@ ZestIz/
 |---|---|---|
 | `GET` | `/api/messages/users` | List all system users for discovery |
 | `GET` | `/api/messages/conversations` | List existing conversations with latest message and unread counts |
+| `DELETE` | `/api/messages/conversations/:targetUserId` | Clear entire 1-on-1 chat history for current user |
 | `GET` | `/api/messages/:id` | Fetch message history with a specific user |
 | `GET` | `/api/messages/search/:userId` | Search messages with a user using regex queries |
 | `GET` | `/api/messages/pinned/:userId` | Get pinned messages for a private conversation |
@@ -262,9 +215,21 @@ ZestIz/
 | `POST` | `/api/messages/:messageId/reaction` | Add or remove emoji reactions to a message |
 | `PATCH` | `/api/messages/:messageId` | Edit an existing message text |
 | `DELETE` | `/api/messages/:messageId` | Delete a message (soft delete with tombstone) |
-| `POST` | `/api/messages/:messageId/poll/vote` | Vote on a poll option |
-| `PATCH` | `/api/messages/:messageId/poll/close` | Close a poll to prevent further voting |
-| `PATCH` | `/api/messages/:messageId/pin` | Pin or unpin a message |
+
+### 👥 Groups (`/api/groups`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/groups` | List all groups the user is a member of |
+| `POST` | `/api/groups` | Create a new group with connected friends |
+| `GET` | `/api/groups/:groupId/messages` | Fetch message history for a group |
+| `DELETE`| `/api/groups/:groupId/messages/clear` | Clear group chat messages history for current user |
+| `POST` | `/api/groups/:groupId/messages` | Send a message to a group |
+| `POST` | `/api/groups/:groupId/messages/search` | Search messages within a group |
+| `PUT` | `/api/groups/:groupId` | Update group name or profile picture (admins only) |
+| `POST` | `/api/groups/:groupId/members` | Manage group members and transfer sovereign ownership |
+| `PATCH`| `/api/groups/:groupId/members/:userId/role`| Toggle multi-admin promote/demote (owner/admin only) |
+
+*(Note: Ownership transfer and member additions are routed via the unified `POST /members` endpoint in the backend, while role toggling happens via the `PATCH /role` endpoint.)*
 
 ### 👥 Friends & Privacy (`/api/friends`)
 | Method | Endpoint | Description |
@@ -282,56 +247,30 @@ ZestIz/
 | `POST` | `/api/friends/unblock/:id` | Unblock a previously blocked user |
 | `PUT` | `/api/friends/privacy` | Update message privacy (`everyone` \| `friends_only`) |
 
-### 👥 Groups (`/api/groups`)
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/groups` | List all groups the user is a member of |
-| `POST` | `/api/groups` | Create a new group with connected friends |
-| `GET` | `/api/groups/:groupId/messages` | Fetch message history for a group |
-| `POST` | `/api/groups/:groupId/messages` | Send a message to a group |
-| `POST` | `/api/groups/:groupId/messages/search` | Search messages within a group |
-| `PUT` | `/api/groups/:groupId` | Update group name or profile picture (admins only) |
-| `PUT` | `/api/groups/:groupId/members` | Manage group members (add/remove/leave) |
-| `PUT` | `/api/groups/:groupId/admins/:userId` | Promote a member to admin (owner only) |
-
-### 📊 Polls (`/api/polls`)
+### 📊 Polls (`/api/polls`) & 📌 Pins (`/api/pins`)
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/polls/private/:id` | Create a poll in a private conversation |
 | `POST` | `/api/polls/group/:groupId` | Create a poll in a group |
-| `POST` | `/api/polls/:messageId/vote` | Vote on a poll option |
-| `POST` | `/api/polls/:messageId/close` | Close a poll (creator or group admin only) |
-
-### 📌 Pinned Messages (`/api/pins`)
-| Method | Endpoint | Description |
-|---|---|---|
-| `PUT` | `/api/pins/:messageId` | Pin or unpin a message (supports optional groupId for group pins) |
-| `GET` | `/api/pins/user/:userId` | Get pinned messages for a private conversation |
-| `GET` | `/api/pins/group/:groupId` | Get pinned messages for a group |
+| `POST` | `/api/polls/:messageId/vote` | Vote on a poll |
+| `PATCH`| `/api/polls/:messageId/close` | Close a poll |
+| `PUT` | `/api/pins/:messageId` | Pin or unpin a message |
 
 ### ⚡ Socket.IO Events
 - **Client to Server:** `connection`, `disconnect`, `typing`, `stopTyping`, `groupTyping`, `groupStopTyping`
 - **Server to Client:**
   - `getOnlineUsers`: Broadcasts list of active user IDs.
-  - `newMessage`: Emits incoming chat messages to recipient with full metadata.
-  - `messageDelivered`: Notifies sender that message was delivered to recipient.
-  - `messagesRead`: Notifies sender when recipient reads messages.
-  - `messageReactionUpdated`: Broadcasts emoji reaction changes to all participants.
-  - `messageUpdated`: Notifies when a message is edited with new content.
-  - `messageDeleted`: Notifies when a message is deleted (soft delete with timestamp).
-  - `newGroupMessage`: Emits new messages to all group members with full context.
-  - `groupUpdated`: Notifies group members of updates (name, members, admins, profile picture).
-  - `groupRemoved`: Notifies user when removed from a group.
-  - `groupTyping`: Displays who is typing in group conversations.
-  - `groupStopTyping`: Clears typing indicator in group conversations.
-  - `newFriendRequest`: Notifies recipient of new friend invitations.
-  - `friendRequestAccepted`: Alerts sender that request was accepted.
-  - `friendRequestCancelled`: Notifies target when an invitation is cancelled.
-  - `friendRemoved`: Updates client when unfriended.
-  - `userBlocked`: Notifies user that they have been blocked.
-  - `pollUpdated`: Broadcasts poll changes (votes, closes) to all participants.
-  - `messagePinUpdated`: Notifies conversation participants of pin/unpin events.
-  - `userMentioned`: Alerts user when they are mentioned in a message with browser notification.
+  - `newMessage`: Emits incoming chat messages to recipient. Dynamically triggers instant sidebar conversation insertion for first-time contacts.
+  - `messageReactionUpdated`: Reactively tracks emoji updates, broadcasting emoji removals and additions sequentially for immediate DOM updates.
+  - `messageDelivered` / `messagesRead`: Read receipt tracking.
+  - `messageUpdated` / `messageDeleted`: Real-time editing and deletion markers.
+  - `newGroupMessage`: Broadcasts to all group members.
+  - `groupUpdated` / `groupRemoved`: Name, role, membership, and ownership sync dynamically.
+  - `newFriendRequest` / `friendRequestAccepted` / `friendRequestCancelled` / `friendRemoved`: Full friend lifecycle sync via sockets.
+  - `userBlocked`: Immediate access revocation payload.
+  - `pollUpdated`: Vote and close events synchronized.
+  - `messagePinUpdated`: Notifies of pin/unpin events.
+  - `userMentioned`: Alerts user when mentioned.
 
 ---
 
