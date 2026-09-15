@@ -27,7 +27,7 @@ export function DeleteConversationModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, isLoading, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === "undefined" || !document.body) return null;
 
   return createPortal(
     <div

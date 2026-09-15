@@ -9,6 +9,8 @@ import { ChatHeader } from "../components/chat/ChatHeader";
 import { MessageList } from "../components/chat/MessageList";
 import { ChatComposer } from "../components/chat/ChatComposer";
 
+import { ErrorBoundary } from "../components/common/ErrorBoundary";
+
 const ProfileModal = lazy(() =>
   import("../components/profile/ProfileModal").then((module) => ({
     default: module.ProfileModal,
@@ -74,7 +76,9 @@ function ChatPage() {
           }`}
         >
           <ChatHeader />
-          <MessageList />
+          <ErrorBoundary>
+            <MessageList />
+          </ErrorBoundary>
 
           {activeConversation ? <ChatComposer /> : null}
         </div>

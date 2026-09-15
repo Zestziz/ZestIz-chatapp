@@ -6,6 +6,8 @@ import { BarChart3Icon, PlusIcon, XIcon } from "lucide-react";
 const MAX_OPTIONS = 8;
 
 export function PollModal({ onClose, onCreate }) {
+  if (typeof document === "undefined" || !document.body) return null;
+
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [isSaving, setIsSaving] = useState(false);

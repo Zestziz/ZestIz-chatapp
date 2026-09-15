@@ -513,7 +513,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
       </div>
 
       {/* Unified Deletion Confirmation Modal */}
-      {confirmDeleteType && (
+      {confirmDeleteType && typeof document !== "undefined" && document.body && (
         createPortal(
           <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-5 shadow-2xl animate-in zoom-in-95 duration-150">
@@ -536,14 +536,14 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
       )}
 
       {/* Mobile Context Menu Overlay via React Portal */}
-      {isMobileMenuOpen && typeof document !== "undefined" && createPortal(
+      {isMobileMenuOpen && typeof document !== "undefined" && document.body && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsMobileMenuOpen(false);
-              setIsDeleteConfirmOpen(false);
+              setIsDeleteDropdownOpen(false);
             }
           }}
         >
@@ -552,13 +552,14 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
-            {isDeleteConfirmOpen ? (
+            {confirmDeleteType ? (
               <div className="space-y-3 p-2">
-                <p className="text-center font-medium">Delete for everyone?</p>
-                <p className="text-center text-xs text-muted">This will remove the message for all participants.</p>
+                <p className="text-center font-medium">
+                  {confirmDeleteType === "me" ? "Delete message for yourself?" : "Delete for everyone?"}
+                </p>
                 <div className="flex gap-2">
-                  <button type="button" className="flex-1 rounded-lg bg-surface py-2 hover:bg-surface/80" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</button>
-                  <button type="button" className="flex-1 rounded-lg bg-danger py-2 text-white hover:bg-danger/90 font-medium" onClick={handleDeleteForEveryone}>Delete</button>
+                  <button type="button" className="flex-1 rounded-lg bg-surface py-2 hover:bg-surface/80" onClick={() => setConfirmDeleteType(null)}>Cancel</button>
+                  <button type="button" className="flex-1 rounded-lg bg-danger py-2 text-white hover:bg-danger/90 font-medium" onClick={confirmDeleteType === "me" ? handleDeleteForMe : handleDeleteForEveryone}>Delete</button>
                 </div>
               </div>
             ) : (

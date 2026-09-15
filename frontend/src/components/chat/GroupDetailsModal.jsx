@@ -186,7 +186,7 @@ export function GroupDetailsModal({ group, onClose }) {
     });
   };
 
-  if (!group) return null;
+  if (!group || typeof document === "undefined" || !document.body) return null;
 
   return createPortal(
     <div

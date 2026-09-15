@@ -29,7 +29,7 @@ export function ReactionDetailsModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === "undefined" || !document.body) return null;
 
   // Group reactions by emoji
   const emojiGroups = reactions.reduce((acc, r) => {

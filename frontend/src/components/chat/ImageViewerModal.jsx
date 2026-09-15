@@ -212,7 +212,7 @@ export function ImageViewerModal({ imageUrl, alt = "", onClose }) {
     }
   };
 
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined" || !document.body) return null;
 
   return createPortal(
     <div
