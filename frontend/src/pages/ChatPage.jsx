@@ -2,7 +2,8 @@ import { useWallpaper } from "../context/wallpaper";
 import { useChatStore } from "../store/useChatStore";
 import { useFriendStore } from "../store/useFriendStore";
 import { useSelectedConversation } from "../hooks/useSelectedConversation";
-import { useEffect, lazy, Suspense } from "react";
+import { useMobileBackHandler } from "../hooks/useMobileBackHandler";
+import { useEffect, useCallback, lazy, Suspense } from "react";
 import ChatSidebar from "../components/chat/ChatSidebar";
 import { ChatHeader } from "../components/chat/ChatHeader";
 import { MessageList } from "../components/chat/MessageList";
@@ -18,6 +19,8 @@ function ChatPage() {
   const { frameStyle } = useWallpaper();
   const openProfile = useChatStore((state) => state.openProfile);
   const profileUser = useChatStore((state) => state.profileUser);
+  const closeProfile = useChatStore((state) => state.closeProfile);
+  const setActiveConversationId = useChatStore((state) => state.setActiveConversationId);
 
   const getConversations = useChatStore((state) => state.getConversations);
   const getMessages = useChatStore((state) => state.getMessages);
@@ -30,6 +33,19 @@ function ChatPage() {
   const unsubscribeFromMessages = useChatStore((state) => state.unsubscribeFromMessages);
 
   const { activeConversation, activeConversationId, isLargeScreen } = useSelectedConversation();
+
+  // Profile modal: back button closes it (priority 1 = topmost layer).
+  const handleProfileBack = useCallback(() => {
+    closeProfile();
+  }, [closeProfile]);
+  useMobileBackHandler(!!profileUser, handleProfileBack, { priority: 1 });
+
+  // Active chat on mobile: back button returns to sidebar (priority 0).
+  const handleChatBack = useCallback(() => {
+    setActiveConversationId(null);
+  }, [setActiveConversationId]);
+  const isMobileChatOpen = !isLargeScreen && !!activeConversationId;
+  useMobileBackHandler(isMobileChatOpen, handleChatBack, { priority: 0 });
 
   useEffect(() => {
     Promise.allSettled([getUsers(), getConversations(), getGroups(), getFriends(), getPendingRequests()]);

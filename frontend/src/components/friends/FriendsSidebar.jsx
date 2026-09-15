@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useFriendStore } from "../../store/useFriendStore";
 import { useChatStore } from "../../store/useChatStore";
-import { Avatar, Button } from "@heroui/react";
-import { MessageSquare, UserMinus } from "lucide-react";
+import { Avatar, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
+import { MessageSquare, UserMinus, Users, MoreVertical } from "lucide-react";
 import { AvatarWithOnlineIndicator } from "../chat/AvatarWithOnlineIndicator";
 import { useAuthStore } from "../../store/useAuthStore";
 import { getInitials } from "../../hooks/useSelectedConversation";
@@ -33,12 +33,12 @@ export default function FriendsSidebar() {
         <p className="text-sm text-muted-foreground text-center py-4">You have no friends yet.</p>
       )}
 
-      <ul className="space-y-4">
+      <ul className="space-y-2">
         {friends.map((f) => (
-          <li key={f._id} className="flex items-center justify-between group">
-            <div className="flex items-center gap-3">
+          <li key={f._id} className="flex items-center justify-between group p-2 -mx-2 rounded-xl hover:bg-surface/50 transition-colors cursor-pointer select-none" onClick={() => handleMessage(f._id)}>
+            <div className="flex items-center gap-3 w-full pr-2">
               <AvatarWithOnlineIndicator isOnline={onlineUsers.includes(f._id)}>
-                <Avatar className="size-10 shrink-0">
+                <Avatar className="size-10 shrink-0 cursor-pointer">
                   <Avatar.Image
                     src={f.profilePic || f.avatar || f.imageUrl || f.avatarUrl}
                     alt={f.fullName}
@@ -48,30 +48,54 @@ export default function FriendsSidebar() {
                   </Avatar.Fallback>
                 </Avatar>
               </AvatarWithOnlineIndicator>
-              <div>
-                <p className="text-sm font-semibold">{f.fullName}</p>
-                <button
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors focus:outline-none"
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{f.fullName}</p>
+                <div
+                  className="inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded-full bg-surface/80 border border-border/50 text-[10px] sm:text-[11px] text-muted-foreground hover:bg-surface hover:text-foreground hover:border-border transition-all cursor-pointer select-none"
                   onMouseEnter={() => getMutualCount(f._id)}
-                  onFocus={() => getMutualCount(f._id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    getMutualCount(f._id);
+                  }}
                 >
-                  {mutualCounts[f._id] != null
-                    ? `${mutualCounts[f._id]} mutual friends`
-                    : "Hover to see mutuals"}
-                </button>
+                  <Users className="size-3" />
+                  {mutualCounts[f._id] != null ? (
+                    <span>{mutualCounts[f._id]} mutual{mutualCounts[f._id] !== 1 ? 's' : ''}</span>
+                  ) : (
+                    <span>Check mutuals</span>
+                  )}
+                </div>
               </div>
             </div>
 
             <div
-              className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0"
               onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
             >
-              <Button isIconOnly size="sm" variant="light" color="primary" onPress={() => handleMessage(f._id)}>
+              <Button isIconOnly size="sm" variant="light" color="primary" onPress={() => handleMessage(f._id)} className="hidden sm:flex">
                 <MessageSquare className="size-4" />
               </Button>
-              <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => removeFriend(f._id)}>
+              <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => removeFriend(f._id)} className="hidden sm:flex">
                 <UserMinus className="size-4" />
               </Button>
+
+              <Dropdown placement="bottom-end">
+                <DropdownTrigger>
+                  <Button isIconOnly size="sm" variant="light" className="sm:hidden text-muted-foreground w-8 min-w-8">
+                    <MoreVertical className="size-4" />
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu aria-label="Friend Actions">
+                  <DropdownItem key="message" startContent={<MessageSquare className="size-4" />} onPress={() => handleMessage(f._id)}>
+                    Message
+                  </DropdownItem>
+                  <DropdownItem key="unfriend" className="text-danger" color="danger" startContent={<UserMinus className="size-4" />} onPress={() => removeFriend(f._id)}>
+                    Unfriend
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
             </div>
           </li>
         ))}
