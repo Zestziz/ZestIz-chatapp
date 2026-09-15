@@ -283,6 +283,44 @@ export async function deleteMessage(req, res) {
   }
 }
 
+export async function deleteMessageForMe(req, res) {
+  try {
+    const { messageId } = req.params;
+    const currentUserId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: "Invalid message ID" });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
+
+    // Validate participant
+    if (message.groupId) {
+      const group = await Group.findById(message.groupId).select("members");
+      if (!group?.members.some((id) => String(id) === String(currentUserId))) {
+        return res.status(403).json({ message: "You are not a group member" });
+      }
+    } else {
+      const isParticipant = String(message.senderId) === String(currentUserId) || String(message.receiverId) === String(currentUserId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "You are not a participant in this conversation" });
+      }
+    }
+
+    const updatedMessage = await Message.findByIdAndUpdate(
+      messageId,
+      { $addToSet: { deletedFor: currentUserId } },
+      { new: true }
+    );
+
+    return res.status(200).json({ success: true, message: "Message deleted for you" });
+  } catch (error) {
+    console.error("Error in deleteMessageForMe:", error.message);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 export async function deleteConversation(req, res) {
   try {
     const { targetUserId } = req.params;

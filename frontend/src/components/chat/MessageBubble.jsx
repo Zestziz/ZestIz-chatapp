@@ -82,10 +82,13 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
   const [isReactionDetailsOpen, setIsReactionDetailsOpen] = useState(false);
   const [reactionModalEmoji, setReactionModalEmoji] = useState("all");
   const pickerRef = useRef(null);
+  const deleteConfirmRef = useRef(null);
   const authUser = useAuthStore((state) => state.authUser);
   const reactToMessage = useChatStore((state) => state.reactToMessage);
   const startEditingMessage = useChatStore((state) => state.startEditingMessage);
   const deleteMessage = useChatStore((state) => state.deleteMessage);
+  const deleteMessageForMe = useChatStore((state) => state.deleteMessageForMe);
+  const activeConversationId = useChatStore((state) => state.activeConversationId);
   const votePoll = useChatStore((state) => state.votePoll);
   const closePoll = useChatStore((state) => state.closePoll);
   const pinMessage = useChatStore((state) => state.pinMessage);
@@ -120,12 +123,34 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
     };
   }, [isPickerOpen]);
 
+  useEffect(() => {
+    if (!isDeleteConfirmOpen) return undefined;
+
+    const handleClickOutside = (event) => {
+      if (!deleteConfirmRef.current?.contains(event.target)) setIsDeleteConfirmOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [isDeleteConfirmOpen]);
+
   const handleReaction = async (emoji) => {
     setIsPickerOpen(false);
     await reactToMessage(message.id, emoji);
   };
 
-  const handleDelete = async () => {
+  const handleDeleteForMe = async () => {
+    const chatId = activeConversationId || (selectedGroup ? `group:${selectedGroup._id}` : message.receiverId || message.senderId);
+    await deleteMessageForMe(message.id, chatId);
+    setIsDeleteConfirmOpen(false);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleDeleteForEveryone = async () => {
     await deleteMessage(message.id);
     setIsDeleteConfirmOpen(false);
     setIsMobileMenuOpen(false);
@@ -285,20 +310,23 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                 ) : null}
               </div>
             ) : null}
-            {isOwnMessage && !isDeleted ? (
-              <>
-                <button
-                  type="button"
-                  className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-accent-soft hover:text-foreground"
-                  aria-label="Edit message"
-                  title="Edit message"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    startEditingMessage(message);
-                  }}
-                >
-                  <PencilIcon className="size-3.5" aria-hidden />
-                </button>
+            {isOwnMessage && !isDeleted && !message.poll && message.text ? (
+              <button
+                type="button"
+                className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-accent-soft hover:text-foreground"
+                aria-label="Edit message"
+                title="Edit message"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  startEditingMessage(message);
+                }}
+              >
+                <PencilIcon className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
+
+            {!isDeleted ? (
+              <div className="relative">
                 <button
                   type="button"
                   className="flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger"
@@ -306,13 +334,48 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                   title="Delete message"
                   onClick={(event) => {
                     event.stopPropagation();
-                    setIsDeleteConfirmOpen(true);
+                    setIsDeleteConfirmOpen((open) => !open);
                   }}
                 >
                   <Trash2Icon className="size-3.5" aria-hidden />
                 </button>
-              </>
+                {isDeleteConfirmOpen ? (
+                  <div
+                    ref={deleteConfirmRef}
+                    className="absolute right-0 top-8 z-30 flex min-w-40 flex-col gap-1 rounded-xl border border-border bg-background p-1.5 text-xs shadow-xl"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <span className="px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted">Delete message</span>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-foreground hover:bg-surface"
+                      onClick={handleDeleteForMe}
+                    >
+                      <Trash2Icon className="size-3.5 text-muted" />
+                      <span>Delete for me</span>
+                    </button>
+                    {isOwnMessage && (
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left font-medium text-danger hover:bg-danger/10"
+                        onClick={handleDeleteForEveryone}
+                      >
+                        <Trash2Icon className="size-3.5" />
+                        <span>Delete for everyone</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="mt-0.5 rounded-lg border border-border/50 py-1 text-center text-muted hover:bg-surface"
+                      onClick={() => setIsDeleteConfirmOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
+
             {canPin && !isDeleted ? (
               <button
                 type="button"
@@ -323,25 +386,6 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
               >
                 <PinIcon className="size-3.5" aria-hidden />
               </button>
-            ) : null}
-            {isDeleteConfirmOpen ? (
-              <div className="absolute right-0 top-8 flex items-center gap-1 rounded-lg border border-border bg-background p-1.5 text-xs shadow-lg">
-                <span className="px-1 text-muted">Delete for everyone?</span>
-                <button
-                  type="button"
-                  className="rounded-md px-2 py-1 text-muted hover:bg-surface"
-                  onClick={() => setIsDeleteConfirmOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md bg-danger px-2 py-1 text-white"
-                  onClick={handleDelete}
-                >
-                  Delete
-                </button>
-              </div>
             ) : null}
         </div>
         {message.replyTo ? (
@@ -485,9 +529,10 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
             {isDeleteConfirmOpen ? (
               <div className="space-y-3 p-2">
                 <p className="text-center font-medium">Delete for everyone?</p>
+                <p className="text-center text-xs text-muted">This will remove the message for all participants.</p>
                 <div className="flex gap-2">
                   <button type="button" className="flex-1 rounded-lg bg-surface py-2 hover:bg-surface/80" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</button>
-                  <button type="button" className="flex-1 rounded-lg bg-danger py-2 text-white hover:bg-danger/90" onClick={handleDelete}>Delete</button>
+                  <button type="button" className="flex-1 rounded-lg bg-danger py-2 text-white hover:bg-danger/90 font-medium" onClick={handleDeleteForEveryone}>Delete</button>
                 </div>
               </div>
             ) : (
@@ -530,16 +575,29 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                             <PinIcon className="size-4 text-accent" /> {message.isPinned ? "Unpin Message" : "Pin Message"}
                         </button>
                     )}
-                    {isOwnMessage && !isDeleted && (
+                    {isOwnMessage && !isDeleted && !message.poll && message.text && (
+                        <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { setIsMobileMenuOpen(false); startEditingMessage(message); }}>
+                            <PencilIcon className="size-4 text-muted" /> Edit Message
+                        </button>
+                    )}
+                    {!isDeleted && (
                         <>
-                            {!message.poll && message.text && (
-                                <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium hover:bg-accent-soft" onClick={() => { setIsMobileMenuOpen(false); startEditingMessage(message); }}>
-                                    <PencilIcon className="size-4 text-muted" /> Edit Message
-                                </button>
-                            )}
-                            <button type="button" className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-danger hover:bg-danger/10" onClick={() => { setIsDeleteConfirmOpen(true); }}>
-                                <Trash2Icon className="size-4" /> Delete Message
+                            <button
+                              type="button"
+                              className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-danger hover:bg-danger/10"
+                              onClick={handleDeleteForMe}
+                            >
+                              <Trash2Icon className="size-4" /> Delete for Me
                             </button>
+                            {isOwnMessage && (
+                              <button
+                                type="button"
+                                className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-danger hover:bg-danger/10"
+                                onClick={() => setIsDeleteConfirmOpen(true)}
+                              >
+                                <Trash2Icon className="size-4" /> Delete for Everyone
+                              </button>
+                            )}
                         </>
                     )}
                 </div>

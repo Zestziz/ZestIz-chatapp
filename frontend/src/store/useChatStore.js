@@ -502,6 +502,46 @@ export const useChatStore = create(
         }
       },
 
+      deleteMessageForMe: async (messageId, chatId) => {
+        const previousMessages = get().messagesByChatId[chatId] || [];
+        const currentActiveMessages = get().messages;
+        const isCurrentChat = String(get().activeConversationId) === String(chatId);
+
+        // Optimistic removal
+        set((state) => ({
+          messagesByChatId: {
+            ...state.messagesByChatId,
+            [chatId]: previousMessages.filter((m) => String(m._id || m.id) !== String(messageId)),
+          },
+          messages: isCurrentChat ? currentActiveMessages.filter((m) => String(m._id || m.id) !== String(messageId)) : currentActiveMessages,
+          editingMessage:
+            state.editingMessage && String(state.editingMessage.id || state.editingMessage._id) === String(messageId)
+              ? null
+              : state.editingMessage,
+          replyingTo:
+            state.replyingTo && String(state.replyingTo.id || state.replyingTo._id) === String(messageId)
+              ? null
+              : state.replyingTo,
+        }));
+
+        try {
+          await axiosInstance.patch(`/messages/${messageId}/delete-for-me`);
+          return true;
+        } catch (error) {
+          console.error("Failed to delete message for me:", error);
+          // Rollback on failure
+          set((state) => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [chatId]: previousMessages,
+            },
+            messages: isCurrentChat ? currentActiveMessages : state.messages,
+          }));
+          toast.error("Failed to delete message");
+          return false;
+        }
+      },
+
       deleteConversation: async (targetUserId) => {
         if (!targetUserId) return false;
         const rawId = String(targetUserId).replace(/^group:/, "");
