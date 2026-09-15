@@ -143,6 +143,27 @@ export const useFriendStore = create((set, get) => ({
     }
   },
 
+  unfriendUser: async (targetUserId) => {
+    const cleanId = (targetUserId?._id || targetUserId).toString();
+    const previousFriends = get().friends;
+
+    // Optimistic update
+    set((state) => ({
+      friends: state.friends.filter((f) => (f._id || f).toString() !== cleanId),
+    }));
+
+    try {
+      await axiosInstance.delete(`/friends/${cleanId}`);
+      toast.success("Friend removed");
+      get().getFriends();
+      useChatStore.getState().getUsers();
+    } catch (error) {
+      // Rollback on failure
+      set({ friends: previousFriends });
+      toast.error(error.response?.data?.message || "Failed to unfriend user");
+    }
+  },
+
   removeFriend: async (friendId) => {
     const cleanId = (friendId?._id || friendId).toString();
     const previousFriends = get().friends;

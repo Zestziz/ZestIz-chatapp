@@ -3,10 +3,12 @@ import { Button } from "@heroui/react";
 import { UsersIcon, XIcon, CameraIcon } from "lucide-react";
 import { useChatStore } from "../../store/useChatStore";
 import { useFriendStore } from "../../store/useFriendStore";
+import { useBackHandler } from "../../hooks/useBackHandler";
 import { Avatar } from "@heroui/react";
 import { getInitials } from "../../hooks/useSelectedConversation";
 
 export function CreateGroupModal({ onClose }) {
+  useBackHandler(true, onClose, "modal-create-group");
   const friends = useFriendStore((state) => state.friends);
   const createGroup = useChatStore((state) => state.createGroup);
   const [name, setName] = useState("");

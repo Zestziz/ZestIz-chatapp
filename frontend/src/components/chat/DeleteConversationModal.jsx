@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, X, Loader2 } from "lucide-react";
 import { Button } from "@heroui/react";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 export function DeleteConversationModal({
   isOpen,
@@ -11,6 +12,8 @@ export function DeleteConversationModal({
   isGroup = false,
   isLoading = false,
 }) {
+  useBackHandler(isOpen && !isLoading, onClose, "modal-delete");
+
   useEffect(() => {
     if (!isOpen) return;
 

@@ -2,7 +2,7 @@ import { useWallpaper } from "../context/wallpaper";
 import { useChatStore } from "../store/useChatStore";
 import { useFriendStore } from "../store/useFriendStore";
 import { useSelectedConversation } from "../hooks/useSelectedConversation";
-import { useMobileBackHandler } from "../hooks/useMobileBackHandler";
+import { useBackHandler } from "../hooks/useBackHandler";
 import { useEffect, useCallback, lazy, Suspense } from "react";
 import ChatSidebar from "../components/chat/ChatSidebar";
 import { ChatHeader } from "../components/chat/ChatHeader";
@@ -34,18 +34,18 @@ function ChatPage() {
 
   const { activeConversation, activeConversationId, isLargeScreen } = useSelectedConversation();
 
-  // Profile modal: back button closes it (priority 1 = topmost layer).
+  // Profile modal: back button closes it
   const handleProfileBack = useCallback(() => {
     closeProfile();
   }, [closeProfile]);
-  useMobileBackHandler(!!profileUser, handleProfileBack, { priority: 1 });
+  useBackHandler(!!profileUser, handleProfileBack, "profile");
 
-  // Active chat on mobile: back button returns to sidebar (priority 0).
+  // Active chat on mobile: back button returns to sidebar
   const handleChatBack = useCallback(() => {
     setActiveConversationId(null);
   }, [setActiveConversationId]);
   const isMobileChatOpen = !isLargeScreen && !!activeConversationId;
-  useMobileBackHandler(isMobileChatOpen, handleChatBack, { priority: 0 });
+  useBackHandler(isMobileChatOpen, handleChatBack, "chat");
 
   useEffect(() => {
     Promise.allSettled([getUsers(), getConversations(), getGroups(), getFriends(), getPendingRequests()]);
