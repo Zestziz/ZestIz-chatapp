@@ -56,10 +56,10 @@ function markMessageDeleted(messages, messageId, deletedAt, deletedBy) {
       deletedBy,
       isPinned: false,
     };
-    if (String(message._id) === String(messageId)) {
+    if (String(message._id || message.id) === String(messageId)) {
       return { ...message, ...deletedFields };
     }
-    if (String(message.replyTo?._id) === String(messageId)) {
+    if (String(message.replyTo?._id || message.replyTo?.id) === String(messageId)) {
       return { ...message, replyTo: { ...message.replyTo, ...deletedFields } };
     }
     return message;
@@ -475,26 +475,40 @@ export const useChatStore = create(
       deleteMessage: async (messageId) => {
         try {
           const res = await axiosInstance.delete(`/messages/${messageId}`);
-          set((state) => ({
-            messages: markMessageDeleted(
+          set((state) => {
+            const updatedMessages = markMessageDeleted(
               state.messages,
               messageId,
               res.data.deletedAt,
               res.data.deletedBy,
-            ),
-            editingMessage:
-              state.editingMessage && String(state.editingMessage.id || state.editingMessage._id) === String(messageId)
-                ? null
-                : state.editingMessage,
-            replyingTo:
-              state.replyingTo && String(state.replyingTo.id || state.replyingTo._id) === String(messageId)
-                ? null
-                : state.replyingTo,
-            composerText:
-              state.editingMessage && String(state.editingMessage.id || state.editingMessage._id) === String(messageId)
-                ? ""
-                : state.composerText,
-          }));
+            );
+            const activeChatId = state.activeConversationId;
+            const updatedMessagesByChatId = { ...state.messagesByChatId };
+            if (activeChatId && updatedMessagesByChatId[activeChatId]) {
+              updatedMessagesByChatId[activeChatId] = markMessageDeleted(
+                updatedMessagesByChatId[activeChatId],
+                messageId,
+                res.data.deletedAt,
+                res.data.deletedBy
+              );
+            }
+            return {
+              messages: updatedMessages,
+              messagesByChatId: updatedMessagesByChatId,
+              editingMessage:
+                state.editingMessage && String(state.editingMessage.id || state.editingMessage._id) === String(messageId)
+                  ? null
+                  : state.editingMessage,
+              replyingTo:
+                state.replyingTo && String(state.replyingTo.id || state.replyingTo._id) === String(messageId)
+                  ? null
+                  : state.replyingTo,
+              composerText:
+                state.editingMessage && String(state.editingMessage.id || state.editingMessage._id) === String(messageId)
+                  ? ""
+                  : state.composerText,
+            };
+          });
           return true;
         } catch (error) {
           toast.error(error.response?.data?.message || "Failed to delete message");
@@ -969,9 +983,16 @@ export const useChatStore = create(
 
         socket.on("messageUpdated", (updatedMessage) => {
           if (!updatedMessage?._id) return;
-          set((state) => ({
-            messages: updateMessageFromServer(state.messages, updatedMessage),
-          }));
+          set((state) => {
+            const updatedMessagesByChatId = {};
+            for (const [chatId, msgs] of Object.entries(state.messagesByChatId || {})) {
+              updatedMessagesByChatId[chatId] = updateMessageFromServer(msgs, updatedMessage);
+            }
+            return {
+              messages: updateMessageFromServer(state.messages, updatedMessage),
+              messagesByChatId: updatedMessagesByChatId,
+            };
+          });
         });
 
         socket.on("messageDeleted", ({ messageId, deletedAt, deletedBy }) => {
@@ -983,8 +1004,15 @@ export const useChatStore = create(
             const isReplyingToDeletedMessage =
               state.replyingTo &&
               String(state.replyingTo.id || state.replyingTo._id) === String(messageId);
+
+            const updatedMessagesByChatId = {};
+            for (const [chatId, msgs] of Object.entries(state.messagesByChatId || {})) {
+              updatedMessagesByChatId[chatId] = markMessageDeleted(msgs, messageId, deletedAt, deletedBy);
+            }
+
             return {
               messages: markMessageDeleted(state.messages, messageId, deletedAt, deletedBy),
+              messagesByChatId: updatedMessagesByChatId,
               pinnedMessages: state.pinnedMessages.filter((message) => String(message._id) !== String(messageId)),
               editingMessage: isEditingDeletedMessage ? null : state.editingMessage,
               replyingTo: isReplyingToDeletedMessage ? null : state.replyingTo,

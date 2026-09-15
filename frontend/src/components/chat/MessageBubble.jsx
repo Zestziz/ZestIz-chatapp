@@ -75,7 +75,8 @@ function renderFormattedMessage(text, isOwnMessage) {
 
 export const MessageBubble = memo(function MessageBubble({ message, onReply, onNavigateToReply }) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleteDropdownOpen, setIsDeleteDropdownOpen] = useState(false);
+  const [confirmDeleteType, setConfirmDeleteType] = useState(null); // "me" | "everyone" | null
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
@@ -124,10 +125,10 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
   }, [isPickerOpen]);
 
   useEffect(() => {
-    if (!isDeleteConfirmOpen) return undefined;
+    if (!isDeleteDropdownOpen) return undefined;
 
     const handleClickOutside = (event) => {
-      if (!deleteConfirmRef.current?.contains(event.target)) setIsDeleteConfirmOpen(false);
+      if (!deleteConfirmRef.current?.contains(event.target)) setIsDeleteDropdownOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -136,7 +137,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
-  }, [isDeleteConfirmOpen]);
+  }, [isDeleteDropdownOpen]);
 
   const handleReaction = async (emoji) => {
     setIsPickerOpen(false);
@@ -146,14 +147,16 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
   const handleDeleteForMe = async () => {
     const chatId = activeConversationId || (selectedGroup ? `group:${selectedGroup._id}` : message.receiverId || message.senderId);
     await deleteMessageForMe(message.id, chatId);
-    setIsDeleteConfirmOpen(false);
+    setConfirmDeleteType(null);
     setIsMobileMenuOpen(false);
+    setIsDeleteDropdownOpen(false);
   };
 
   const handleDeleteForEveryone = async () => {
     await deleteMessage(message.id);
-    setIsDeleteConfirmOpen(false);
+    setConfirmDeleteType(null);
     setIsMobileMenuOpen(false);
+    setIsDeleteDropdownOpen(false);
   };
 
   const pointerTimerRef = useRef(null);
@@ -334,12 +337,12 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                   title="Delete message"
                   onClick={(event) => {
                     event.stopPropagation();
-                    setIsDeleteConfirmOpen((open) => !open);
+                    setIsDeleteDropdownOpen((open) => !open);
                   }}
                 >
                   <Trash2Icon className="size-3.5" aria-hidden />
                 </button>
-                {isDeleteConfirmOpen ? (
+                {isDeleteDropdownOpen ? (
                   <div
                     ref={deleteConfirmRef}
                     className="absolute right-0 top-8 z-30 flex min-w-40 flex-col gap-1 rounded-xl border border-border bg-background p-1.5 text-xs shadow-xl"
@@ -349,7 +352,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                     <button
                       type="button"
                       className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-foreground hover:bg-surface"
-                      onClick={handleDeleteForMe}
+                      onClick={() => setConfirmDeleteType("me")}
                     >
                       <Trash2Icon className="size-3.5 text-muted" />
                       <span>Delete for me</span>
@@ -358,7 +361,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                       <button
                         type="button"
                         className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left font-medium text-danger hover:bg-danger/10"
-                        onClick={handleDeleteForEveryone}
+                        onClick={() => setConfirmDeleteType("everyone")}
                       >
                         <Trash2Icon className="size-3.5" />
                         <span>Delete for everyone</span>
@@ -367,7 +370,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                     <button
                       type="button"
                       className="mt-0.5 rounded-lg border border-border/50 py-1 text-center text-muted hover:bg-surface"
-                      onClick={() => setIsDeleteConfirmOpen(false)}
+                      onClick={() => setIsDeleteDropdownOpen(false)}
                     >
                       Cancel
                     </button>
@@ -509,6 +512,29 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
       </div>
       </div>
 
+      {/* Unified Deletion Confirmation Modal */}
+      {confirmDeleteType && (
+        createPortal(
+          <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-5 shadow-2xl animate-in zoom-in-95 duration-150">
+                <h3 className="text-lg font-semibold mb-2">
+                    {confirmDeleteType === "me" ? "Delete message for yourself?" : "Delete for everyone?"}
+                </h3>
+                <p className="text-muted text-sm mb-6">
+                    {confirmDeleteType === "me"
+                        ? "This message will be removed from your chat history on this device."
+                        : "This will permanently delete the message for everyone in this conversation."}
+                </p>
+                <div className="flex gap-3">
+                    <button type="button" className="flex-1 rounded-xl bg-surface py-2.5 font-medium hover:bg-surface/80" onClick={() => setConfirmDeleteType(null)}>Cancel</button>
+                    <button type="button" className="flex-1 rounded-xl bg-danger py-2.5 font-medium text-white hover:bg-danger/90" onClick={confirmDeleteType === "me" ? handleDeleteForMe : handleDeleteForEveryone}>Delete</button>
+                </div>
+            </div>
+          </div>,
+          document.body
+        )
+      )}
+
       {/* Mobile Context Menu Overlay via React Portal */}
       {isMobileMenuOpen && typeof document !== "undefined" && createPortal(
         <div
@@ -585,7 +611,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                             <button
                               type="button"
                               className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-danger hover:bg-danger/10"
-                              onClick={handleDeleteForMe}
+                              onClick={() => setConfirmDeleteType("me")}
                             >
                               <Trash2Icon className="size-4" /> Delete for Me
                             </button>
@@ -593,7 +619,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onReply, onN
                               <button
                                 type="button"
                                 className="flex items-center gap-2.5 px-3.5 py-2.5 text-left font-medium text-danger hover:bg-danger/10"
-                                onClick={() => setIsDeleteConfirmOpen(true)}
+                                onClick={() => setConfirmDeleteType("everyone")}
                               >
                                 <Trash2Icon className="size-4" /> Delete for Everyone
                               </button>

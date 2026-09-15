@@ -21,7 +21,14 @@ export function getInitials(name) {
 // 2. User → peer
 
 function mapUserToConversation({ user, messages, authUser, onlineUsers, lastSeenByUser }) {
-  const mappedMessages = messages.map((message) => {
+  const filteredMessages = messages.filter((message) => {
+    if (message.deletedFor && Array.isArray(message.deletedFor)) {
+      return !message.deletedFor.some((id) => String(id?._id || id) === String(authUser?._id));
+    }
+    return true;
+  });
+
+  const mappedMessages = filteredMessages.map((message) => {
     const isOwn = String(message.senderId) === String(authUser?._id);
     return {
       id: message._id || message.id,
@@ -40,6 +47,7 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers, lastSeen
       editedAt: message.editedAt,
       deletedAt: message.deletedAt,
       deletedBy: message.deletedBy,
+      deletedFor: message.deletedFor || [],
       isPinned: message.isPinned || false,
       pinnedAt: message.pinnedAt,
       reactions: message.reactions || [],
@@ -76,7 +84,14 @@ function mapUserToConversation({ user, messages, authUser, onlineUsers, lastSeen
 }
 
 function mapGroupToConversation({ group, messages, authUser }) {
-  const mappedMessages = messages.map((message) => {
+  const filteredMessages = messages.filter((message) => {
+    if (message.deletedFor && Array.isArray(message.deletedFor)) {
+      return !message.deletedFor.some((id) => String(id?._id || id) === String(authUser?._id));
+    }
+    return true;
+  });
+
+  const mappedMessages = filteredMessages.map((message) => {
     const isOwn = String(message.senderId) === String(authUser?._id);
     const sender = group.members?.find((member) => String(member._id) === String(message.senderId));
     const senderName = isOwn ? "You" : sender?.fullName || "Member";
@@ -98,6 +113,7 @@ function mapGroupToConversation({ group, messages, authUser }) {
       editedAt: message.editedAt,
       deletedAt: message.deletedAt,
       deletedBy: message.deletedBy,
+      deletedFor: message.deletedFor || [],
       isPinned: message.isPinned || false,
       pinnedAt: message.pinnedAt,
       reactions: message.reactions || [],
